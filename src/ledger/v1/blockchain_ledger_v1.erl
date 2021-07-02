@@ -81,6 +81,9 @@
     find_pocs/2,
     find_poc/3,
     request_poc/6,
+    save_public_poc/5,
+    find_public_poc/2,
+    delete_public_poc/2,
     delete_poc/3,
     maybe_gc_pocs/2,
     maybe_gc_scs/2,
@@ -1979,6 +1982,55 @@ request_poc_(OnionKeyHash, SecretHash, Challenger, BlockHash, Ledger, Gw0, Versi
 delete_poc(OnionKeyHash, Challenger, Ledger) ->
     PoCsCF = pocs_cf(Ledger),
     cache_delete(Ledger, PoCsCF, <<OnionKeyHash/binary, Challenger/binary>>).
+
+-spec save_public_poc(  OnionKeyHash :: binary(),
+                        Challenger :: libp2p_crypto:pubkey_bin(),
+                        BlockHash :: binary(),
+                        BlockHeight :: pos_integer(),
+                        Ledger :: ledger()) -> ok | {error, any()}.
+save_public_poc(OnionKeyHash, Challenger, BlockHash, BlockHeight, Ledger) ->
+    case ?MODULE:find_gateway_info(Challenger, Ledger) of
+        {error, _} ->
+            {error, no_active_gateway};
+        {ok, _Gw0} ->
+            case ?MODULE:find_poc(OnionKeyHash, Ledger) of
+                {error, not_found} ->
+                    save_public_poc_(OnionKeyHash, Challenger, BlockHash, BlockHeight, Ledger);
+                {error, _Reason} = Error ->
+                    Error
+            end
+    end.
+
+save_public_poc_(OnionKeyHash, Challenger, BlockHash, BlockHeight, Ledger) ->
+    %%TODO - consider how/when to GC old POCs from ledger
+    PoC = blockchain_ledger_poc_v3:new(OnionKeyHash, Challenger, BlockHash, BlockHeight),
+    PoCBin = blockchain_ledger_poc_v3:serialize(PoC),
+    PoCsCF = pocs_cf(Ledger),
+    cache_put(Ledger, PoCsCF, OnionKeyHash, PoCBin).
+
+-spec find_public_poc(binary(), ledger()) -> {ok, blockchain_ledger_poc_v3:pocs()} | {error, any()}.
+find_public_poc(OnionKeyHash, Ledger) ->
+    PoCsCF = pocs_cf(Ledger),
+    case cache_get(Ledger, PoCsCF, OnionKeyHash, []) of
+        {ok, BinPoC} ->
+            PoC = erlang:binary_to_term(BinPoC),
+            {ok, blockchain_ledger_poc_v3:deserialize(PoC)};
+        not_found ->
+            {error, not_found};
+        Error ->
+            Error
+    end.
+
+-spec delete_public_poc(binary(), ledger()) -> ok | {error, any()}.
+delete_public_poc(OnionKeyHash, Ledger) ->
+    case ?MODULE:find_public_poc(OnionKeyHash, Ledger) of
+        {error, not_found} ->
+            ok;
+        {error, _}=Error ->
+            Error;
+        {ok, _PoC} ->
+            ?MODULE:delete_pocs(OnionKeyHash, Ledger)
+    end.
 
 maybe_gc_pocs(Chain, Ledger) ->
     {ok, Height} = current_height(Ledger),
@@ -4722,8 +4774,8 @@ snapshot_pocs(Ledger) ->
         cache_fold(
           Ledger, PoCsCF,
           fun({OnionKeyHash, BValue}, Acc) ->
-                  List = binary_to_term(BValue),
-                  Value = lists:map(fun blockchain_ledger_poc_v2:deserialize/1, List),
+                  PoC = binary_to_term(BValue),
+                  Value = blockchain_ledger_poc_v3:deserialize(PoC),
                   maps:put(OnionKeyHash, Value, Acc)
           end, #{},
           []))).
@@ -4732,7 +4784,7 @@ load_pocs(PoCs, Ledger) ->
     PoCsCF = pocs_cf(Ledger),
     maps:map(
       fun(OnionHash, P) ->
-              BPoC = term_to_binary(lists:map(fun blockchain_ledger_poc_v2:serialize/1, P)),
+              BPoC = term_to_binary(blockchain_ledger_poc_v3:serialize(P)),
               cache_put(Ledger, PoCsCF, OnionHash, BPoC)
       end,
       maps:from_list(PoCs)),
