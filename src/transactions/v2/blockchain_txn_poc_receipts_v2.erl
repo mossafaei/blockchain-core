@@ -157,7 +157,7 @@ is_valid(Txn, Chain) ->
     PubKey = libp2p_crypto:bin_to_pubkey(Challenger),
     BaseTxn = Txn#blockchain_txn_poc_receipts_v2_pb{signature = <<>>},
     EncodedTxn = blockchain_txn_poc_receipts_v2_pb:encode_msg(BaseTxn),
-    POCVersion = blockchain:config(?poc_version, Ledger),
+    {ok, POCVersion} = blockchain:config(?poc_version, Ledger),
     case libp2p_crypto:verify(EncodedTxn, Signature, PubKey) of
         false ->
             {error, bad_signature};
@@ -173,7 +173,6 @@ is_valid(Txn, Chain) ->
                             {error, empty_path};
                         false ->
                             case check_is_valid_poc(POCVersion, Txn, Chain) of
-                                ok -> ok;
                                 {ok, Channels} ->
                                     lager:debug("POCID: ~p, validated ok with reported channels: ~p",
                                                 [poc_id(Txn), Channels]),
@@ -187,7 +186,7 @@ is_valid(Txn, Chain) ->
 
 -spec check_is_valid_poc(POCVersion :: pos_integer(),
                          Txn :: txn_poc_receipts(),
-                         Chain :: blockchain:blockchain()) -> ok | {ok, [non_neg_integer(), ...]} | {error, any()}.
+                         Chain :: blockchain:blockchain()) -> {ok, [non_neg_integer(), ...]} | {error, any()}.
 check_is_valid_poc(POCVersion, Txn, Chain) ->
     Ledger = blockchain:ledger(Chain),
     Challenger = ?MODULE:challenger(Txn),
@@ -241,7 +240,7 @@ check_is_valid_poc(POCVersion, Txn, Chain) ->
                                             Vars = vars(OldLedger),
                                             Keys = libp2p_crypto:keys_from_bin(Secret),
                                             Entropy = <<POCOnionKeyHash/binary, PrePoCBlockHash/binary>>,
-                                            {Path, StartP} = get_path(blockchain:config(?poc_version, OldLedger) , Challenger, BlockTime, Entropy, Keys, Vars, OldLedger, Ledger, StartFT),
+                                            {Path, StartP} = get_path(POCVersion, Challenger, BlockTime, Entropy, Keys, Vars, OldLedger, Ledger, StartFT),
                                             N = erlang:length(Path),
                                             [<<IV:16/integer-unsigned-little, _/binary>> | LayerData] = blockchain_txn_poc_receipts_v2:create_secret_hash(Entropy, N+1),
                                             OnionList = lists:zip([libp2p_crypto:bin_to_pubkey(P) || P <- Path], LayerData),
@@ -365,18 +364,18 @@ deltas(Txn) ->
              Chain :: blockchain:blockchain()) -> deltas().
 deltas(Txn, Chain) ->
     Ledger = blockchain:ledger(Chain),
-    deltas(blockchain:config(?poc_version, Ledger), Txn, Chain).
+    {ok, POCVersion} = blockchain:config(?poc_version, Ledger),
+    deltas(POCVersion, Txn, Chain).
 
 -spec deltas(POCVersion :: pos_integer(),
              Txn :: txn_poc_receipts(),
              Chain :: blockchain:blockchain()) -> deltas().
 deltas(_POCVersion, Txn, Chain) ->
-    calculate_delta(Txn, Chain, true).
+    calculate_delta(Txn, Chain).
 
 -spec calculate_delta(Txn :: txn_poc_receipts(),
-                      Chain :: blockchain:blockchain(),
-                      CalcFreq :: boolean()) -> deltas().
-calculate_delta(Txn, Chain, true) ->
+                      Chain :: blockchain:blockchain()) -> deltas().
+calculate_delta(Txn, Chain) ->
     Ledger = blockchain:ledger(Chain),
     Path = blockchain_txn_poc_receipts_v2:path(Txn),
     Length = length(Path),
@@ -407,22 +406,7 @@ calculate_delta(Txn, Chain, true) ->
     catch
         _:_ ->
             []
-    end;
-calculate_delta(Txn, Chain, false) ->
-    Ledger = blockchain:ledger(Chain),
-    Path = blockchain_txn_poc_receipts_v2:path(Txn),
-    Length = length(Path),
-    lists:reverse(element(1, lists:foldl(fun({ElementPos, Element}, {Acc, true}) ->
-                                                 Challengee = blockchain_poc_path_element_v1:challengee(Element),
-                                                 NextElements = lists:sublist(Path, ElementPos+1, Length),
-                                                 HasContinued = check_path_continuation(NextElements),
-                                                 {Val, Continue} = calculate_alpha_beta(HasContinued, Element, Ledger),
-                                                 {set_deltas(Challengee, Val, Acc), Continue};
-                              (_, Acc) ->
-                                   Acc
-                           end,
-                           {[], true},
-                           lists:zip(lists:seq(1, Length), Path)))).
+    end.
 
 -spec check_path_continuation(Elements :: [blockchain_poc_path_element_v1:poc_element()]) -> boolean().
 check_path_continuation(Elements) ->
@@ -478,17 +462,9 @@ calculate_alpha_beta(HasContinued, Element, PreviousElement, ReceiptChannel, Wit
     Witnesses = valid_witnesses(Element, WitnessChannel, Ledger),
     allocate_alpha_beta(HasContinued, Element, Receipt, Witnesses, Ledger).
 
--spec calculate_alpha_beta(HasContinued :: boolean(),
-                           Element :: blockchain_poc_path_element_v1:poc_element(),
-                           Ledger :: blockchain_ledger_v1:ledger()) -> {{float(), 0 | 1}, boolean()}.
-calculate_alpha_beta(HasContinued, Element, Ledger) ->
-    Receipt = blockchain_poc_path_element_v1:receipt(Element),
-    Witnesses = blockchain_poc_path_element_v1:witnesses(Element),
-    allocate_alpha_beta(HasContinued, Element, Receipt, Witnesses, Ledger).
-
 -spec allocate_alpha_beta(HasContinued :: boolean(),
                           Element :: blockchain_poc_path_element_v1:poc_element(),
-                          Receipt :: blockchain_poc_receipt_v1:poc_receipt(),
+                          Receipt :: undefined | blockchain_poc_receipt_v1:poc_receipt(),
                           Witnesses :: [blockchain_poc_witness_v1:poc_witness()],
                           Ledger :: blockchain_ledger_v1:ledger()) -> {{float(), 0 | 1}, boolean()}.
 allocate_alpha_beta(HasContinued, Element, Receipt, Witnesses, Ledger) ->
@@ -496,7 +472,7 @@ allocate_alpha_beta(HasContinued, Element, Receipt, Witnesses, Ledger) ->
         {true, undefined, _} ->
             %% path continued, no receipt, don't care about witnesses
             {{0.8, 0}, true};
-        {true, Receipt, _} when Receipt /= undefined ->
+        {true, Receipt, _} ->
             %% path continued, receipt, don't care about witnesses
             {{1, 0}, true};
         {false, undefined, Wxs} when length(Wxs) > 0 ->
@@ -559,7 +535,8 @@ set_deltas(Challengee, {A, B}, Deltas) ->
 -spec good_quality_witnesses(Element :: blockchain_poc_path_element_v1:poc_element(),
                              Ledger :: blockchain_ledger_v1:ledger()) -> [blockchain_poc_witness_v1:poc_witness()].
 good_quality_witnesses(Element, Ledger) ->
-    good_quality_witnesses(blockchain:config(?poc_version, Ledger), Element, Ledger).
+    {ok, POCVersion} = blockchain:config(?poc_version, Ledger),
+    good_quality_witnesses(POCVersion, Element, Ledger).
 
 -spec good_quality_witnesses(POCVersion :: pos_integer(),
                              Element :: blockchain_poc_path_element_v1:poc_element(),
@@ -658,7 +635,8 @@ tagged_path_elements_fold(Fun, Acc0, Txn, Ledger, Chain) ->
  -spec absorb(txn_poc_receipts(), blockchain:blockchain()) -> ok | {error, atom()} | {error, {atom(), any()}}.
 absorb(Txn, Chain) ->
     Ledger = blockchain:ledger(Chain),
-    absorb(blockchain:config(?poc_version, Ledger), Txn, Chain).
+    {ok, POCVersion} = blockchain:config(?poc_version, Ledger),
+    absorb(POCVersion, Txn, Chain).
 
  -spec absorb(pos_integer(), txn_poc_receipts(), blockchain:blockchain()) -> ok | {error, atom()} | {error, {atom(), any()}}.
 absorb(_POCVersion, Txn, Chain) ->
@@ -1058,7 +1036,7 @@ valid_receipt(PreviousElement, Element, Channel, Ledger) ->
                                                                                         RSSI, SNR]),
                                                                             undefined
                                                                     end;
-                                                                {false, LowerBound} ->
+                                                                _ ->
                                                                     lager:debug("receipt ~p -> ~p rejected at height ~p for RSSI ~p below lower bound ~p with SNR ~p",
                                                                                 [?TO_ANIMAL_NAME(blockchain_poc_path_element_v1:challengee(PreviousElement)),
                                                                                 ?TO_ANIMAL_NAME(blockchain_poc_path_element_v1:challengee(Element)),
@@ -1344,7 +1322,7 @@ get_channels_(_POCVersion, Ledger, Path, LayerData, RegionVars0) ->
             %% will be in the same region
             case blockchain_ledger_v1:find_gateway_location(Challengee, Ledger) of
                 {error, _}=E ->
-                    E;
+                    throw(E);
                 {ok, ChallengeeLoc} ->
                     case blockchain_region_v1:h3_to_region(ChallengeeLoc, Ledger, RegionVars) of
                         {error, _}=E ->
