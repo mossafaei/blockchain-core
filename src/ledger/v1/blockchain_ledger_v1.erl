@@ -87,6 +87,7 @@
     update_public_poc/2,
     active_public_pocs/1,
     delete_poc/3,
+    purge_pocs/1,
     maybe_gc_pocs/2,
     maybe_gc_scs/2,
 
@@ -2122,6 +2123,18 @@ active_public_pocs(Ledger) ->
       end,
       []
      ).
+
+-spec purge_pocs(ledger()) -> ok | {error, any()}.
+purge_pocs(Ledger) ->
+    PoCsCF = pocs_cf(Ledger),
+    _ = cache_fold(
+          Ledger,
+          PoCsCF,
+          fun({KeyHash, _}, _Acc) ->
+              cache_delete(Ledger, PoCsCF, KeyHash)
+          end,
+          []
+    ).
 
 maybe_gc_pocs(Chain, Ledger) ->
     {ok, Height} = current_height(Ledger),
