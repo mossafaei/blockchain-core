@@ -45,6 +45,9 @@ init_gossip_data(WAT) ->
     lager:info("WAT ~p", [WAT]),
     {send, <<>>}.
 
+handle_gossip_data(StreamPid, {_Path, Data}, Args) ->
+    %% handle libp2p performance branch change in handle gossip data that includes the path
+    handle_gossip_data(StreamPid, Data, Args);
 handle_gossip_data(_StreamPid, Data, [SwarmTID, Blockchain]) ->
     try
         case blockchain_gossip_handler_pb:decode_msg(Data, blockchain_gossip_block_pb) of
