@@ -181,6 +181,11 @@
 
 %% resolution for h3 polyfills, defaulted to 7 before we set it
 -define(polyfill_resolution, polyfill_resolution).
+
+%% max number of hexes to GC in the h3dex per block
+-define(h3dex_gc_width, h3dex_gc_width).
+
+-define(poc_target_pool_size, poc_target_pool_size).
 %%%
 %%% score vars
 %%%
