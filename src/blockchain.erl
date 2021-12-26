@@ -702,6 +702,8 @@ blocks(#blockchain{db=DB, blocks=BlocksCF}) ->
 get_block(Hash, #blockchain{db=DB, blocks=BlocksCF}) when is_binary(Hash) ->
     case rocksdb:get(DB, BlocksCF, Hash, []) of
         {ok, BinBlock} ->
+            blockchain_worker:update_rocks_ctr(<<"get_block">>,
+                                               byte_size(BinBlock)),
             {ok, blockchain_block:deserialize(BinBlock)};
         not_found ->
             {error, not_found};
@@ -773,6 +775,8 @@ put_block_info(Height, Info, _Chain = #blockchain{db=DB, info=InfoCF}) ->
 get_block_info(Height, Chain = #blockchain{db=DB, info=InfoCF}) ->
     case rocksdb:get(DB, InfoCF, <<Height:64/integer-unsigned-big>>, []) of
         {ok, BinInfo} ->
+            blockchain_worker:update_rocks_ctr(<<"get_info">>,
+                                               byte_size(BinInfo)),
             {ok, deserialize_block_info(BinInfo, Chain)};
         not_found ->
             case get_block(Height, Chain) of

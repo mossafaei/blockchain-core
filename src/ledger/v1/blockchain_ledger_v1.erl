@@ -3751,6 +3751,7 @@ cache_get(Ledger, {Name, DB, CF}, Key, Options) ->
                 [] ->
                     case rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options)) of
                         {ok, Value} ->
+                            blockchain_worker:update_rocks_ctr(Key, byte_size(Value)),
                             %% check if we should cache this in the context.
                             %% Currently 4 things are cached:
                             %% * Chain Vars

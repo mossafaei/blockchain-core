@@ -57,7 +57,10 @@
     add_commit_hook/3, add_commit_hook/4,
     remove_commit_hook/1,
 
-    monitor_rocksdb_gc/1
+    monitor_rocksdb_gc/1,
+
+    update_rocks_ctr/2,
+    clear_rocks_ctr/0
 ]).
 
 %% ------------------------------------------------------------------
@@ -103,7 +106,8 @@
          resync_info :: undefined | {pid(), reference()},
          resync_retries = 3 :: pos_integer(),
          rocksdb_gc_mref :: undefined | reference(),
-         mode :: snapshot | normal | reset
+         mode :: snapshot | normal | reset,
+         rocks_ctr :: ets:tab()
         }).
 
 %% ------------------------------------------------------------------
@@ -337,11 +341,23 @@ signed_metadata_fun() ->
             end
     end.
 
+clear_rocks_ctr() ->
+    ets:delete_all_objects(rocks_ctr).
+
+update_rocks_ctr(Key, Bytes) ->
+    ets:update_counter(rocks_ctr,
+                       Key,
+                       [{2, 1}, {3, Bytes}],
+                       {Key, 0, 0}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 init(Args) ->
     lager:info("~p init with ~p", [?SERVER, Args]),
+    RocksCtr = ets:new(rocks_ctr, [public,
+                                   named_table,
+                                   {write_concurrency, true}]),
     Swarm = blockchain_swarm:swarm(),
     SwarmTID = blockchain_swarm:tid(),
     %% allows the default interface to be to overridden, for example tests work better running with just 127.0.0.1 rather than running on all interfaces
@@ -382,7 +398,8 @@ init(Args) ->
     {Mode, Info} = get_sync_mode(Blockchain),
 
     {ok, #state{swarm = Swarm, swarm_tid = SwarmTID, blockchain = Blockchain,
-                gossip_ref = Ref, mode = Mode, snapshot_info = Info}}.
+                gossip_ref = Ref, mode = Mode, snapshot_info = Info,
+                rocks_ctr = RocksCtr}}.
 
 handle_call({integrate_genesis_block_synchronously, GenesisBlock}, _From, #state{}=S0) ->
     {Result, S1} = integrate_genesis_block_(GenesisBlock, S0),
