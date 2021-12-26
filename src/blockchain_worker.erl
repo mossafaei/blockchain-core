@@ -107,7 +107,8 @@
          resync_retries = 3 :: pos_integer(),
          rocksdb_gc_mref :: undefined | reference(),
          mode :: snapshot | normal | reset,
-         rocks_ctr :: ets:tab()
+         rocks_ctr :: ets:tab(),
+         bc_rtc :: ets:tab()
         }).
 
 %% ------------------------------------------------------------------
@@ -355,6 +356,7 @@ update_rocks_ctr(Key, Bytes) ->
 %% ------------------------------------------------------------------
 init(Args) ->
     lager:info("~p init with ~p", [?SERVER, Args]),
+    RTC = ets:new(bc_rtc, [public, named_table, {read_concurrency, true}]),
     RocksCtr = ets:new(rocks_ctr, [public,
                                    named_table,
                                    {write_concurrency, true}]),
@@ -399,7 +401,8 @@ init(Args) ->
 
     {ok, #state{swarm = Swarm, swarm_tid = SwarmTID, blockchain = Blockchain,
                 gossip_ref = Ref, mode = Mode, snapshot_info = Info,
-                rocks_ctr = RocksCtr}}.
+                rocks_ctr = RocksCtr,
+                bc_rtc = RTC}}.
 
 handle_call({integrate_genesis_block_synchronously, GenesisBlock}, _From, #state{}=S0) ->
     {Result, S1} = integrate_genesis_block_(GenesisBlock, S0),
