@@ -1173,13 +1173,13 @@ poc_witness_reward(Txn, AccIn,
                                            ValidWitnesses);
                                      D ->
                                          %% new (HIP17)
+                                         Challengee = blockchain_poc_path_element_v1:challengee(Elem),
+                                         %% This must always be {ok, ...}
+                                         %% Challengee must have a location
+                                         {ok, ChallengeeLoc} =
+                                             blockchain_ledger_v1:find_gateway_location(Challengee, Ledger),
                                          lists:foldl(
                                            fun(WitnessRecord, Acc2) ->
-                                                   Challengee = blockchain_poc_path_element_v1:challengee(Elem),
-                                                   %% This must always be {ok, ...}
-                                                   %% Challengee must have a location
-                                                   {ok, ChallengeeLoc} =
-                                                      blockchain_ledger_v1:find_gateway_location(Challengee, Ledger),
                                                    Witness =
                                                       blockchain_poc_witness_v1:gateway(WitnessRecord),
                                                    %% The witnesses get scaled by the value of their transmitters

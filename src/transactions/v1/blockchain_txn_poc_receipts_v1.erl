@@ -1432,7 +1432,7 @@ tagged_witnesses(Element, Channel, RegionVars0, Ledger) ->
 
     DiscardZeroFreq = blockchain_ledger_v1:config(?discard_zero_freq_witness, Ledger),
     {ok, ExclusionCells} = blockchain_ledger_v1:config(?poc_v4_exclusion_cells, Ledger),
-    %% intentionally do not require
+    %% intentionally do not require, no match on {ok, Value} so we can handle later
     DAV = blockchain:config(?data_aggregation_version, Ledger),
     Limit = blockchain:config(?poc_distance_limit, Ledger),
     Version = poc_version(Ledger),

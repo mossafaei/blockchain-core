@@ -53,22 +53,33 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+%% todo: make it easier to call from the shell, don't
+%% reload the ledger if it's already in place
+
 init_per_testcase(_TestCase, Config) ->
+    TgtHeight = 1154958,
+    LoadHeight = TgtHeight + 50,
+    HtStr = integer_to_list(TgtHeight),
+
     {ok, _} = application:ensure_all_started(lager),
+    RTC = ets:new(bc_rtc, [public, named_table, {read_concurrency, true}]),
+    RocksCtr = ets:new(rocks_ctr, [public,
+                                   named_table,
+                                   {write_concurrency, true}]),
 
     {ok, Dir} = file:get_cwd(),
     PrivDir = filename:join([Dir, "priv"]),
     NewDir = PrivDir ++ "/ledger/",
     ok = filelib:ensure_dir(NewDir),
 
-    Filename = Dir ++ "/snap-933121",
+    Filename = Dir ++ "/snap-" ++ HtStr,
 
     {ok, BinSnap} =
         try
             {ok, BinSnap1} = file:read_file(Filename),
             {ok, BinSnap1}
         catch _:_ ->
-                os:cmd("wget https://snapshots.helium.wtf/mainnet/snap-933121"),
+                os:cmd("wget https://snapshots.helium.wtf/mainnet/snap-" ++ HtStr),
                 {ok, BinSnap2} = file:read_file(Filename),
                 {ok, BinSnap2}
         end,
@@ -78,28 +89,37 @@ init_per_testcase(_TestCase, Config) ->
 
     {ok, _Pid} = blockchain_score_cache:start_link(),
 
-    {ok, BinGen} = file:read_file("../../../../test/genesis"),
+    {ok, BinGen} = file:read_file("test/genesis"),
     GenesisBlock = blockchain_block:deserialize(BinGen),
     {ok, Chain} = blockchain:new(NewDir, GenesisBlock, blessed_snapshot, undefined),
 
-    Ledger1 = blockchain_ledger_snapshot_v1:import(Chain, SHA, Snapshot),
-    {ok, Height} = blockchain_ledger_v1:current_height(Ledger1),
+    Ledger0 =
+        case blockchain:height(Chain) of
+            {ok, 1} ->
+                Ledger1 = blockchain_ledger_snapshot_v1:import(Chain, SHA, Snapshot),
+                {ok, Height} = blockchain_ledger_v1:current_height(Ledger1),
+                ct:pal("loaded ledger at height ~p", [Height]),
 
-    CLedger = blockchain_ledger_v1:new_context(Ledger1),
-    blockchain_ledger_v1:cf_fold(
-      active_gateways,
-      fun({Addr, BG}, _) ->
-              G = blockchain_ledger_gateway_v2:deserialize(BG),
-              blockchain_ledger_v1:update_gateway(G, Addr, CLedger)
-      end, foo, CLedger),
+                CLedger = blockchain_ledger_v1:new_context(Ledger1),
+                blockchain_ledger_v1:cf_fold(
+                  active_gateways,
+                  fun({Addr, BG}, _) ->
+                          G = blockchain_ledger_gateway_v2:deserialize(BG),
+                          blockchain_ledger_v1:update_gateway(G, Addr, CLedger)
+                  end, foo, CLedger),
 
-    _ = blockchain_ledger_v1:commit_context(CLedger),
+                _ = blockchain_ledger_v1:commit_context(CLedger),
+                CLedger;
+            {ok, LoadHeight} ->
+                blockchain:ledger(Chain)
+        end,
 
-    ct:pal("loaded ledger at height ~p", [Height]),
+    Chain1 = blockchain:ledger(Ledger0, Chain),
 
-    Chain1 = blockchain:ledger(CLedger, Chain),
-
-    [{chain, Chain1} | Config].
+    [{chain, Chain1},
+     {rtc, RTC},
+     {ctr, RocksCtr}
+    | Config].
 
 end_per_testcase(_TestCase, Config) ->
     blockchain_score_cache:stop(),
@@ -121,7 +141,7 @@ reward_perf_test(Config) ->
     {Time, R} =
         timer:tc(
           fun() ->
-                  {ok, Rewards} = blockchain_txn_rewards_v2:calculate_rewards(Height - 15, Height, Chain1),
+                  {ok, Rewards} = blockchain_txn_rewards_v2:calculate_rewards(Height - 3, Height, Chain1),
                   Rewards
           end),
 

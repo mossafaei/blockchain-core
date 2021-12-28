@@ -967,7 +967,7 @@ raw_fingerprint(Ledger, Extended) ->
 -spec current_height(ledger()) -> {ok, non_neg_integer()} | {error, any()}.
 current_height(Ledger) ->
     DefaultCF = default_cf(Ledger),
-    case cache_get(Ledger, DefaultCF, ?CURRENT_HEIGHT, []) of
+    case cache_get(Ledger, DefaultCF, ?CURRENT_HEIGHT, [{rtc, true}]) of
         {ok, <<Height:64/integer-unsigned-big>>} ->
             {ok, Height};
         not_found ->
@@ -1332,7 +1332,7 @@ vars(Vars, Unset, Ledger) ->
 -spec config(term(), ledger()) -> {ok, term()} | {error, term()}.
 config(ConfigName, Ledger) ->
     DefaultCF = default_cf(Ledger),
-    case cache_get(Ledger, DefaultCF, var_name(ConfigName), []) of
+    case cache_get(Ledger, DefaultCF, var_name(ConfigName), [{rtc, true}]) of
         {ok, ConfigVal} ->
             {ok, binary_to_term(ConfigVal)};
         not_found ->
@@ -1343,7 +1343,7 @@ config(ConfigName, Ledger) ->
 
 vars_nonce(Ledger) ->
     DefaultCF = default_cf(Ledger),
-    case cache_get(Ledger, DefaultCF, ?VARS_NONCE, []) of
+    case cache_get(Ledger, DefaultCF, ?VARS_NONCE, [{rtc, true}]) of
         {ok, Nonce} ->
             {ok, binary_to_term(Nonce)};
         not_found ->
@@ -1360,7 +1360,7 @@ vars_nonce(NewNonce, Ledger) ->
                                                                  | {error, any()}.
 find_gateway_info(Address, Ledger) ->
     AGwsCF = active_gateways_cf(Ledger),
-    case cache_get(Ledger, AGwsCF, Address, []) of
+    case cache_get(Ledger, AGwsCF, Address, [{tag, <<"find_gateway_info">>}]) of
         {ok, BinGw} ->
             {ok, blockchain_ledger_gateway_v2:deserialize(BinGw)};
         not_found ->
@@ -1372,7 +1372,7 @@ find_gateway_info(Address, Ledger) ->
 find_gateway_location(Address, Ledger) ->
     AGwsCF = active_gateways_cf(Ledger),
     GwDenormCF = gw_denorm_cf(Ledger),
-    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-loc">>, []) of
+    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-loc">>, [{tag, <<"find_gateway_location">>}, {rtc, true}]) of
         {ok, BinLoc} ->
             {ok, binary_to_term(BinLoc)};
         _ ->
@@ -1912,7 +1912,7 @@ refresh_gateway_witnesses(Hash, Ledger) ->
 -spec find_poc(binary(), ledger()) -> {ok, blockchain_ledger_poc_v2:pocs()} | {error, any()}.
 find_poc(OnionKeyHash, Ledger) ->
     PoCsCF = pocs_cf(Ledger),
-    case cache_get(Ledger, PoCsCF, OnionKeyHash, []) of
+    case cache_get(Ledger, PoCsCF, OnionKeyHash, [{tag, <<"find_poc">>}]) of
         {ok, BinPoCs} ->
             PoCs = erlang:binary_to_term(BinPoCs),
             {ok, lists:map(fun blockchain_ledger_poc_v2:deserialize/1, PoCs)};
@@ -3741,6 +3741,8 @@ cache_put(Ledger, {Name, _DB, _CF}, Key, Value) ->
 
 -spec cache_get(ledger(), rocksdb:cf_handle(), any(), [any()]) -> {ok, any()} | {error, any()} | not_found.
 cache_get(Ledger, {Name, DB, CF}, Key, Options) ->
+    Tag = proplists:get_value(tag, Options, Key),
+    RTC = proplists:get_value(rtc, Options, false),
     case context_cache(Ledger) of
         {C, _GwCache} when C == undefined; C == direct ->
             rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options));
@@ -3751,21 +3753,15 @@ cache_get(Ledger, {Name, DB, CF}, Key, Options) ->
                 [] ->
                     case rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options)) of
                         {ok, Value} ->
-                            blockchain_worker:update_rocks_ctr(Key, byte_size(Value)),
+                            blockchain_worker:update_rocks_ctr(Tag, byte_size(Value)),
                             %% check if we should cache this in the context.
                             %% Currently 4 things are cached:
                             %% * Chain Vars
                             %% * Var Nonce
                             %% * Ledger Height
                             %% * the hex list for targeting
-                            case {Name, Key} of
-                                {default, ?hex_list} ->
-                                    catch ets:insert(Cache, {{Name, Key}, {'__cached', Value}});
-                                {default, ?CURRENT_HEIGHT} ->
-                                    catch ets:insert(Cache, {{Name, Key}, {'__cached', Value}});
-                                {default, ?VARS_NONCE} ->
-                                    catch ets:insert(Cache, {{Name, Key}, {'__cached', Value}});
-                                {default, <<"$var_", _/binary>>} ->
+                            case RTC of
+                                true ->
                                     catch ets:insert(Cache, {{Name, Key}, {'__cached', Value}});
                                 _ ->
                                     ok
@@ -3994,7 +3990,7 @@ set_hexes(HexMap, Ledger) ->
 -spec get_hexes(Ledger :: ledger()) -> {ok, hexmap()} | {error, any()}.
 get_hexes(Ledger) ->
     CF = default_cf(Ledger),
-    case cache_get(Ledger, CF, ?hex_list, []) of
+    case cache_get(Ledger, CF, ?hex_list, [{rtc, true}]) of
         {ok, BinList} ->
             {ok, maps:from_list(binary_to_term(BinList))};
         not_found ->
@@ -4006,7 +4002,7 @@ get_hexes(Ledger) ->
 -spec get_hexes_list(Ledger :: ledger()) -> {ok, []} | {error, any()}.
 get_hexes_list(Ledger) ->
     CF = default_cf(Ledger),
-    case cache_get(Ledger, CF, ?hex_list, []) of
+    case cache_get(Ledger, CF, ?hex_list, [{rtc, true}]) of
         {ok, BinList} ->
             {ok, binary_to_term(BinList)};
         not_found ->
