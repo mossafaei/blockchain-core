@@ -181,11 +181,15 @@ absorb(Txn, Chain) ->
             ok
     end,
 
-    case blockchain_ledger_v1:mode(Ledger) == aux of
-        false ->
-            %% only absorb in the main ledger
+    case blockchain_ledger_v1:mode(Ledger) of
+        %% only absorb in the main ledgers
+        active ->
+            %% only clear the cache in the active ledger
+            blockchain_witness_cache:clear_all(),
             absorb_(Txn, Ledger);
-        true ->
+        delayed ->
+            absorb_(Txn, Ledger);
+        aux ->
             aux_absorb(Txn, Ledger, Chain)
     end.
 
@@ -342,7 +346,11 @@ calculate_rewards_metadata(Start, End, Chain) ->
         %% we are only keeping hex density calculations memoized for a single
         %% rewards transaction calculation, then we discard that work and avoid
         %% cache invalidation issues.
-        true = blockchain_hex:destroy_memoization(),
+        case application:get_env(blockchain, destroy_memo, true) of
+            true ->
+                true = blockchain_hex:destroy_memoization();
+            _ -> ok
+        end,
         {ok, Results}
     catch
         C:Error:Stack ->
