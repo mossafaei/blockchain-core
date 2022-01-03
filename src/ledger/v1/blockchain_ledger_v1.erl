@@ -1473,7 +1473,7 @@ find_gateways_by_owner(OwnerPubkeyBin, Ledger) ->
 find_gateway_gain(Address, Ledger) ->
     AGwsCF = active_gateways_cf(Ledger),
     GwDenormCF = gw_denorm_cf(Ledger),
-    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-gain">>, []) of
+    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-gain">>, [{rtc, true}, {tag, <<"find_gain">>}]) of
         {ok, BinGain} ->
             {ok, binary_to_term(BinGain)};
         _ ->
