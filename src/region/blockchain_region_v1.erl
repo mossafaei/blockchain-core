@@ -59,6 +59,7 @@ get_all_region_bins(Ledger) ->
 h3_to_region(H3, Ledger) ->
     h3_to_region(H3, Ledger, no_prefetch).
 
+
 -spec h3_to_region(H3 :: h3:h3_index(),
                    Ledger :: blockchain_ledger_v1:ledger(),
                    RegionBins :: no_prefetch | [{atom(), binary() | {error, term()}}]) ->
