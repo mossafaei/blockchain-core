@@ -88,6 +88,7 @@ init_per_testcase(_TestCase, Config) ->
     SHA = blockchain_ledger_snapshot_v1:hash(Snapshot),
 
     {ok, _Pid} = blockchain_score_cache:start_link(),
+    {ok, _Pid2} = blockchain_witness_cache:start_link(),
 
     {ok, BinGen} = file:read_file("test/genesis"),
     GenesisBlock = blockchain_block:deserialize(BinGen),
@@ -141,7 +142,7 @@ reward_perf_test(Config) ->
     {Time, R} =
         timer:tc(
           fun() ->
-                  {ok, Rewards} = blockchain_txn_rewards_v2:calculate_rewards(Height - 3, Height, Chain1),
+                  {ok, Rewards} = blockchain_txn_rewards_v2:calculate_rewards(Height - 12, Height, Chain1),
                   Rewards
           end),
 
