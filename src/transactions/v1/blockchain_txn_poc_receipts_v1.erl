@@ -792,7 +792,9 @@ tagged_path_elements_fold(Fun, Acc0, Txn, Ledger, Chain) ->
 
 validate_all_witnesses(Txn, Ledger, Chain) ->
     Path = ?MODULE:path(Txn),
-    try get_channels(Txn, Chain) of
+    Version = poc_version(Ledger),
+    {ok, RegionVars} = blockchain_region_v1:get_all_region_bins(Ledger),
+    try get_channels(Txn, Version, RegionVars, Chain) of
         {ok, Channels} ->
             lists:map(
               fun({ElementPos, Element}) ->
@@ -803,9 +805,8 @@ validate_all_witnesses(Txn, Ledger, Chain) ->
                               _ ->
                                   {lists:nth(ElementPos - 1, Path), lists:nth(ElementPos - 1, Channels), lists:nth(ElementPos, Channels)}
                           end,
-                      %% FilteredReceipt = valid_receipt(PreviousElement, Element, ReceiptChannel, Ledger),
                       %% we're running this entirely for the side-effect here
-                      _FilteredWitnesses = valid_witnesses(Element, WitnessChannel, Ledger)
+                      _FilteredWitnesses = valid_witnesses(Element, WitnessChannel, RegionVars, Ledger)
               end, lists:zip(lists:seq(1, length(Path)), Path)),
             ok
     catch _:_ ->
@@ -859,7 +860,11 @@ absorb(Txn, Chain) ->
 
                         %% use this to warm the cache for receipt submission
                         case application:get_env(blockchain, follow_mode, false) of
-                            false -> validate_all_witnesses(Txn, Ledger, Chain);
+                            false ->
+                                case blockchain_ledger_v1:mode(Ledger) of
+                                    active -> validate_all_witnesses(Txn, Ledger, Chain);
+                                    _ -> ok
+                                end;
                             _ -> ok
                         end,
 
