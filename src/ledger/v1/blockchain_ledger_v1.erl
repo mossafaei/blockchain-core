@@ -1372,7 +1372,7 @@ find_gateway_info(Address, Ledger) ->
 find_gateway_location(Address, Ledger) ->
     AGwsCF = active_gateways_cf(Ledger),
     GwDenormCF = gw_denorm_cf(Ledger),
-    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-loc">>, []) of
+    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-loc">>, [{tag, location}]) of
         {ok, BinLoc} ->
             {ok, binary_to_term(BinLoc)};
         _ ->
@@ -1473,7 +1473,7 @@ find_gateways_by_owner(OwnerPubkeyBin, Ledger) ->
 find_gateway_gain(Address, Ledger) ->
     AGwsCF = active_gateways_cf(Ledger),
     GwDenormCF = gw_denorm_cf(Ledger),
-    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-gain">>, []) of
+    case cache_get(Ledger, GwDenormCF, <<Address/binary, "-gain">>, [{tag, gain}]) of
         {ok, BinGain} ->
             {ok, binary_to_term(BinGain)};
         _ ->
@@ -3746,7 +3746,7 @@ cache_get(Ledger, {Name, DB, CF}, Key, Options) ->
 -spec cache_get(ledger(), rocksdb:cf_handle(), any(), boolean(), [any()]) ->
           {ok, any()} | {error, any()} | not_found.
 cache_get(Ledger, {Name, DB, CF}, Key, RTC, Options) ->
-    %% Tag = proplists:get_value(tag, Options, Key),
+    Tag = proplists:get_value(tag, Options, Key),
     case context_cache(Ledger) of
         {C, _GwCache} when C == undefined; C == direct ->
             rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options));
@@ -3757,7 +3757,7 @@ cache_get(Ledger, {Name, DB, CF}, Key, RTC, Options) ->
                 [] ->
                     case rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options)) of
                         {ok, Value} ->
-                            %% blockchain_worker:update_rocks_ctr(Tag, byte_size(Value)),
+                            blockchain_worker:update_rocks_ctr(Tag, byte_size(Value)),
                             %% check if we should cache this in the context.
                             %% Currently 4 things are cached:
                             %% * Chain Vars
