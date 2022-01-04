@@ -472,7 +472,7 @@ allocate_alpha_beta(HasContinued, Element, Receipt, Witnesses, Ledger) ->
         {true, undefined, _} ->
             %% path continued, no receipt, don't care about witnesses
             {{0.8, 0}, true};
-        {true, Receipt, _} ->
+        {true, Receipt, _}  when Receipt /= undefined ->
             %% path continued, receipt, don't care about witnesses
             {{1, 0}, true};
         {false, undefined, Wxs} when length(Wxs) > 0 ->
@@ -882,7 +882,7 @@ print(#blockchain_txn_poc_receipts_v2_pb{
          onion_key_hash=OnionKeyHash,
          path=Path
         }=Txn) ->
-    io_lib:format("type=poc_receipts_v1 hash=~p challenger=~p onion=~p path:\n\t~s",
+    io_lib:format("type=poc_receipts_v2 hash=~p challenger=~p onion=~p path:\n\t~s",
                   [?TO_B58(?MODULE:hash(Txn)),
                    ?TO_ANIMAL_NAME(Challenger),
                    ?TO_B58(OnionKeyHash),
@@ -1001,7 +1001,7 @@ valid_receipt(PreviousElement, Element, Channel, Ledger) ->
                                          blockchain_utils:addr2name(DstPubkeyBin),
                                          SourceLoc, DestinationLoc, Distance]),
                             undefined;
-                        {false, _Distance} ->
+                        false ->
                             try h3:grid_distance(SourceParentIndex, DestinationParentIndex) of
                                 Dist when Dist >= ExclusionCells ->
                                     RSSI = blockchain_poc_receipt_v1:signal(Receipt),
@@ -1105,7 +1105,7 @@ is_same_region(_Version, SourceRegion0, DstRegion0) ->
     case DstRegion0 of
         {ok, DstRegion} ->
             SourceRegion == DstRegion;
-        unknown ->
+        {error, _} ->
             false
     end.
 
@@ -1119,13 +1119,13 @@ tagged_witnesses(Element, Channel, Ledger) ->
     {ok, RegionVars} = blockchain_region_v1:get_all_region_bins(Ledger),
     tagged_witnesses(Element, Channel, RegionVars, Ledger).
 
--spec tagged_witnesses(Element :: blockchain_poc_path_element_v1:poc_element(),
-                       Channel :: non_neg_integer(),
-                       RegionVars0 :: no_prefetch | [{atom(), binary() | {error, any()}}] | {ok, [{atom(), binary() | {error, any()}}]},
-                       Ledger :: blockchain_ledger_v1:ledger()) -> tagged_witnesses().
+%%-spec tagged_witnesses(Element :: blockchain_poc_path_element_v1:poc_element(),
+%%                       Channel :: non_neg_integer(),
+%%                       RegionVars0 :: no_prefetch | [{atom(), binary() | {error, any()}}] | {ok, [{atom(), binary() | {error, any()}}]},
+%%                       Ledger :: blockchain_ledger_v1:ledger()) -> tagged_witnesses().
 tagged_witnesses(Element, Channel, RegionVars0, Ledger) ->
     SrcPubkeyBin = blockchain_poc_path_element_v1:challengee(Element),
-    {ok, SourceLoc} = blockchain_ledger_v1:find_gateway_info(SrcPubkeyBin, Ledger),
+    {ok, SourceLoc} = blockchain_ledger_v1:find_gateway_location(SrcPubkeyBin, Ledger),
     RegionVars =
         case RegionVars0 of
             {ok, RV} -> RV;
@@ -1149,15 +1149,15 @@ tagged_witnesses(Element, Channel, RegionVars0, Ledger) ->
     lists:foldl(fun(Witness, Acc) ->
                          DstPubkeyBin = blockchain_poc_witness_v1:gateway(Witness),
                          {ok, DestinationLoc} = blockchain_ledger_v1:find_gateway_location(DstPubkeyBin, Ledger),
-                         DestinationRegion =
-                            case blockchain_region_v1:h3_to_region(DestinationLoc, Ledger, RegionVars) of
-                                {error, {unknown_region, _Loc}} when Version >= 11 ->
-                                    lager:warning("saw unknown region for ~p loc ~p",
-                                                  [DstPubkeyBin, DestinationLoc]),
-                                    unknown;
-                                {error, _} -> unknown;
-                                {ok, DR} -> {ok, DR}
-                            end,
+                         DestinationRegion = blockchain_region_v1:h3_to_region(DestinationLoc, Ledger, RegionVars),
+%%                            case blockchain_region_v1:h3_to_region(DestinationLoc, Ledger, RegionVars) of
+%%                                {error, {unknown_region, _Loc}} when Version >= 11 ->
+%%                                    lager:warning("saw unknown region for ~p loc ~p",
+%%                                                  [DstPubkeyBin, DestinationLoc]),
+%%                                    unknown;
+%%                                {error, _} -> unknown;
+%%                                {ok, DR} -> {ok, DR}
+%%                            end,
                          DestinationParentIndex = h3:parent(DestinationLoc, ParentRes),
                          Freq = blockchain_poc_witness_v1:frequency(Witness),
 
