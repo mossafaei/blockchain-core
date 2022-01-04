@@ -457,7 +457,8 @@ absorb(Txn, Chain) ->
             case blockchain_ledger_v1:mode(Ledger) of
                 active -> blockchain_witness_cache:clear_address(Gateway);
                 _ -> ok
-            end
+            end,
+            ok
     end.
 
 %%--------------------------------------------------------------------

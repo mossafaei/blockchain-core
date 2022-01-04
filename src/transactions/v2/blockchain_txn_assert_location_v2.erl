@@ -446,7 +446,8 @@ absorb(Txn, Chain) ->
             case blockchain_ledger_v1:mode(Ledger) of
                 active -> blockchain_witness_cache:clear_address(Gateway);
                 _ -> ok
-            end
+            end,
+            ok
     end.
 
 -spec maybe_update_neighbors(Gateway :: libp2p_crypto:pubkey_bin(),
