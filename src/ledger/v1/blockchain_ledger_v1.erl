@@ -1912,7 +1912,7 @@ refresh_gateway_witnesses(Hash, Ledger) ->
 -spec find_poc(binary(), ledger()) -> {ok, blockchain_ledger_poc_v2:pocs()} | {error, any()}.
 find_poc(OnionKeyHash, Ledger) ->
     PoCsCF = pocs_cf(Ledger),
-    case cache_get(Ledger, PoCsCF, OnionKeyHash, [{tag, <<"find_poc">>}]) of
+    case cache_get(Ledger, PoCsCF, OnionKeyHash, true, [{tag, <<"find_poc">>}]) of
         {ok, BinPoCs} ->
             PoCs = erlang:binary_to_term(BinPoCs),
             {ok, lists:map(fun blockchain_ledger_poc_v2:deserialize/1, PoCs)};
@@ -3755,9 +3755,11 @@ cache_get(Ledger, {Name, DB, CF}, Key, RTC, Options) ->
             %% otherwise the semantics get all confused.
             case ets:lookup(Cache, {Name, Key}) of
                 [] ->
+                    Start = erlang:monotonic_time(microsecond),
                     case rocksdb:get(DB, CF, Key, maybe_use_snapshot(Ledger, Options)) of
                         {ok, Value} ->
-                            blockchain_worker:update_rocks_ctr(Tag, byte_size(Value)),
+                            End = erlang:monotonic_time(microsecond),
+                            blockchain_worker:update_rocks_ctr(Tag, byte_size(Value), End - Start),
                             %% check if we should cache this in the context.
                             %% Currently 4 things are cached:
                             %% * Chain Vars
@@ -4026,7 +4028,7 @@ set_hex(Hex, GwPubkeyBins, Ledger) ->
 -spec get_hex(Hex :: h3:h3_index(), Ledger :: ledger()) -> {ok, term()} | {error, any()}.
 get_hex(Hex, Ledger) ->
     CF = default_cf(Ledger),
-    case cache_get(Ledger, CF, hex_name(Hex), []) of
+    case cache_get(Ledger, CF, hex_name(Hex), true, []) of
         {ok, BinList} ->
             {ok, binary_to_term(BinList)};
         not_found ->

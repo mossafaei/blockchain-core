@@ -59,7 +59,7 @@
 
     monitor_rocksdb_gc/1,
 
-    update_rocks_ctr/2,
+    update_rocks_ctr/3,
     clear_rocks_ctr/0
 ]).
 
@@ -345,11 +345,11 @@ signed_metadata_fun() ->
 clear_rocks_ctr() ->
     ets:delete_all_objects(rocks_ctr).
 
-update_rocks_ctr(Key, Bytes) ->
+update_rocks_ctr(Key, Bytes, USec) ->
     ets:update_counter(rocks_ctr,
                        Key,
-                       [{2, 1}, {3, Bytes}],
-                       {Key, 0, 0}).
+                       [{2, 1}, {3, Bytes}, {4, USec}],
+                       {Key, 0, 0, 0}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
