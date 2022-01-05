@@ -701,10 +701,13 @@ blocks(#blockchain{db=DB, blocks=BlocksCF}) ->
 %%--------------------------------------------------------------------
 -spec get_block(blockchain_block:hash() | integer(), blockchain()) -> {ok, blockchain_block:block()} | {error, any()}.
 get_block(Hash, #blockchain{db=DB, blocks=BlocksCF}) when is_binary(Hash) ->
+    Start = erlang:monotonic_time(microsecond),
     case rocksdb:get(DB, BlocksCF, Hash, []) of
         {ok, BinBlock} ->
+            End = erlang:monotonic_time(microsecond),
             blockchain_worker:update_rocks_ctr(<<"get_block">>,
-                                               byte_size(BinBlock)),
+                                               byte_size(BinBlock),
+                                               End - Start),
             {ok, blockchain_block:deserialize(BinBlock)};
         not_found ->
             {error, not_found};
@@ -779,10 +782,13 @@ get_block_info(Height, Chain = #blockchain{db=DB, info=InfoCF}) ->
         [{_, Info}] ->
             {ok, Info};
         [] ->
+            Start = erlang:monotonic_time(microsecond),
             case rocksdb:get(DB, InfoCF, <<Height:64/integer-unsigned-big>>, []) of
                 {ok, BinInfo} ->
+                    End = erlang:monotonic_time(microsecond),
                     blockchain_worker:update_rocks_ctr(<<"get_info">>,
-                                                       byte_size(BinInfo)),
+                                                       byte_size(BinInfo),
+                                                       End - Start),
                     Info = deserialize_block_info(BinInfo, Chain),
                     %% TODO limit cache size
                     ets:insert(bc_rtc, {Height, Info}),
