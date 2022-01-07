@@ -2002,16 +2002,21 @@ process_poc_keys(Block, BlockHeight, BlockHash, Ledger) ->
     %% we need to update the ledger with public poc data
     %% based on the blocks poc ephemeral keys
     %% these will be a prop with tuples: {MemberPosInCG :: Integer, PocKeyHash :: binary()}
-    BlockPocEphemeralKeys = blockchain_block_v1:poc_keys(Block),
-    {ok, CGMembers} = blockchain_ledger_v1:consensus_members(Ledger),
-    lists:foreach(
-        fun({CGPos, OnionKeyHash}) ->
-            %% the published poc key is a hash of the public key, aka the onion key hash
-            ChallengerAddr = lists:nth(CGPos, CGMembers),
-            lager:info("saving public poc data for poc key ~p and challenger ~p", [OnionKeyHash, ChallengerAddr]),
-            catch ok = blockchain_ledger_v1:save_public_poc(OnionKeyHash, ChallengerAddr, BlockHash, BlockHeight, Ledger)
-        end,
-        BlockPocEphemeralKeys),
+    case blockchain:config(?poc_challenger_type, Ledger) of
+        {ok, validator} ->
+            BlockPocEphemeralKeys = blockchain_block_v1:poc_keys(Block),
+            {ok, CGMembers} = blockchain_ledger_v1:consensus_members(Ledger),
+            lists:foreach(
+                fun({CGPos, OnionKeyHash}) ->
+                    %% the published poc key is a hash of the public key, aka the onion key hash
+                    ChallengerAddr = lists:nth(CGPos, CGMembers),
+                    lager:info("saving public poc data for poc key ~p and challenger ~p", [OnionKeyHash, ChallengerAddr]),
+                    catch ok = blockchain_ledger_v1:save_public_poc(OnionKeyHash, ChallengerAddr, BlockHash, BlockHeight, Ledger)
+                end,
+                BlockPocEphemeralKeys);
+        _ ->
+            ok
+    end,
     ok.
 
 -spec save_public_poc(  OnionKeyHash :: binary(),
@@ -2145,9 +2150,16 @@ active_public_pocs(Ledger) ->
     cache_fold(
       Ledger,
       POCsCF,
-      fun({_KeyHash, Binary}, Acc) ->
-              POC = blockchain_ledger_poc_v3:deserialize(Binary),
-              [POC | Acc]
+      fun
+          ({_KeyHash, <<3, _Bin/binary>> = PoCBin}, Acc) ->
+              try
+                  POC = blockchain_ledger_poc_v3:deserialize(PoCBin),
+                    [POC | Acc]
+              catch _:_ ->
+                  Acc
+              end;
+          ({_KeyHash, _NonV3PoCBin}, Acc) ->
+              Acc
       end,
       []
      ).
@@ -2229,45 +2241,52 @@ maybe_gc_pocs(Chain, Ledger, _) ->
                 cache_fold(
                   Ledger,
                   PoCsCF,
-                  fun({KeyHash, BinPoCs}, Acc) ->
+                  fun
+                      ({KeyHash, BinPoCs}, Acc) ->
                           %% this CF contains all the poc request state that needs to be retained
                           %% between request and receipt validation.  however, it's possible that
                           %% both requests stop and a receipt never comes, which leads to stale (and
                           %% in some cases differing) data in the ledger.  here, we pull that data
                           %% out and delete anything that's too old, as determined by being older
                           %% than twice the request interval, which controls receipt validity.
-                          SPoCs = erlang:binary_to_term(BinPoCs),
-                          PoCs = lists:map(fun blockchain_ledger_poc_v2:deserialize/1, SPoCs),
-                          FPoCs =
-                              lists:filter(
-                                fun(PoC) ->
-                                        H = blockchain_ledger_poc_v2:block_hash(PoC),
-                                        case H of
-                                            <<>> ->
-                                                %% pre-upgrade pocs are ancient
-                                                false;
-                                            _ ->
-                                                case maps:find(H, Hashes) of
-                                                    {ok, BH} ->
-                                                        %% not sure this is even needed, it might
-                                                        %% always be true? but just in case
-                                                        (Height - BH) < PoCInterval * 2;
-                                                    error ->
-                                                        %% if it's not in the hashes map, it's too
-                                                        %% old by construction
-                                                        false
-                                                end
-                                        end
-                                end, PoCs),
-                          case FPoCs == PoCs of
-                              true ->
-                                  Acc;
-                              _ ->
-                                  [{KeyHash, FPoCs} | Acc]
+                          try
+                              SPoCs = erlang:binary_to_term(BinPoCs),
+                              PoCs = lists:map(fun blockchain_ledger_poc_v2:deserialize/1, SPoCs),
+                              FPoCs =
+                                  lists:filter(
+                                    fun(PoC) ->
+                                            H = blockchain_ledger_poc_v2:block_hash(PoC),
+                                            case H of
+                                                <<>> ->
+                                                    %% pre-upgrade pocs are ancient
+                                                    false;
+                                                _ ->
+                                                    case maps:find(H, Hashes) of
+                                                        {ok, BH} ->
+                                                            %% not sure this is even needed, it might
+                                                            %% always be true? but just in case
+                                                            (Height - BH) < PoCInterval * 2;
+                                                        error ->
+                                                            %% if it's not in the hashes map, it's too
+                                                            %% old by construction
+                                                            false
+                                                    end
+                                            end
+                                    end, PoCs),
+                              case FPoCs == PoCs of
+                                  true ->
+                                      Acc;
+                                  _ ->
+                                      [{KeyHash, FPoCs} | Acc]
+                              end
+                          catch _:_ ->
+                              lager:info("could not decode poc, possible wrong version: ~p", [BinPoCs]),
+                              Acc
                           end
                   end,
                   []
                  ),
+
             lager:debug("Alterations ~p", [Alters]),
             %% here we have two clauses, so we don't uselessly store a [] in the ledger, as that
             %% might cause drift, depending on the timing of the GC and a few other factors.
