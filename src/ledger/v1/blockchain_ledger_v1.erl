@@ -2099,9 +2099,11 @@ active_public_pocs(Ledger) ->
                   POC = blockchain_ledger_poc_v3:deserialize(PoCBin),
                     [POC | Acc]
               catch _:_ ->
+                  lager:info("could not decode poc, possible wrong version: ~p", [PoCBin]),
                   Acc
               end;
           ({_KeyHash, _NonV3PoCBin}, Acc) ->
+              lager:info("could not decode poc, possible wrong version: ~p", [_NonV3PoCBin]),
               Acc
       end,
       []
