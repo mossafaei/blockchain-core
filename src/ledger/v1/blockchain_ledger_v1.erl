@@ -919,7 +919,9 @@ raw_fingerprint(Ledger, Extended) ->
         DefaultHash = crypto:hash_final(DefaultHash0),
         L0 =
             [cache_fold(Ledger, CF,
-                        fun({K, V}, Acc) when Mod == t2b ->
+                        fun({_K, <<3, _Rest/binary>> = _V}, Acc) when Mod == t2b ->
+                                Acc;
+                            ({K, V}, Acc) when Mod == t2b ->
                                 crypto:hash_update(Acc, term_to_binary({K, erlang:binary_to_term(V)}));
                            ({K, V}, Acc) when Mod == state_channel ->
                                 {_Mod, SC} = deserialize_state_channel(V),
