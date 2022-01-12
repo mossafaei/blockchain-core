@@ -375,7 +375,7 @@ serialize_v6(#{version := v6}=Snapshot0, BlocksOrNoBlocks) ->
     Snapshot1 = maps:put(blocks, Blocks, Snapshot0),
 
     Pairs = lists:keysort(1, maps:to_list(Snapshot1)),
-    frame_bin(6, serialize_pairs(Pairs)).
+    frame(6, serialize_pairs(Pairs)).
 
 -spec serialize_v5(snapshot_v5(), noblocks) -> binary().
 serialize_v5(Snapshot, noblocks) ->
