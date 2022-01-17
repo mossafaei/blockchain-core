@@ -246,9 +246,9 @@ check_is_valid_poc(POCVersion, Txn, Chain) ->
                                             OnionList = lists:zip([libp2p_crypto:bin_to_pubkey(P) || P <- Path], LayerData),
                                             {_Onion, Layers} = case blockchain:config(?poc_typo_fixes, Ledger) of
                                                                    {ok, true} ->
-                                                                       blockchain_poc_packet:build(Keys, IV, OnionList, PrePoCBlockHash, OldLedger);
+                                                                       blockchain_poc_packet_v2:build(Keys, IV, OnionList);
                                                                    _ ->
-                                                                       blockchain_poc_packet:build(Keys, IV, OnionList, PrePoCBlockHash, Ledger)
+                                                                       blockchain_poc_packet_v2:build(Keys, IV, OnionList)
                                                                end,
                                             %% no witness will exist with the first layer hash
                                             [_|LayerHashes] = [crypto:hash(sha256, L) || L <- Layers],
