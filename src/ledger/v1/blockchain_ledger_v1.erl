@@ -2039,7 +2039,6 @@ save_public_poc(OnionKeyHash, Challenger, BlockHash, BlockHeight, Ledger) ->
     end.
 
 save_public_poc_(OnionKeyHash, Challenger, BlockHash, BlockHeight, Ledger) ->
-    %%TODO - consider how/when to GC POCs from ledger
     PoC = blockchain_ledger_poc_v3:new(OnionKeyHash, Challenger, BlockHash, BlockHeight),
     PoCBin = blockchain_ledger_poc_v3:serialize(PoC),
     PoCsCF = pocs_cf(Ledger),
@@ -2193,6 +2192,8 @@ maybe_gc_pocs(_Chain, Ledger, validator) ->
     %% 'expected' to be absorbed
     {ok, CurHeight} = current_height(Ledger),
     POCsCF = pocs_cf(Ledger),
+    {ok, POCTimeout} = blockchain:config(?poc_timeout, Ledger),
+    {ok, POCReceiptsAbsorbTimeout} = blockchain:config(?poc_receipts_absorb_timeout, Ledger),
 
     %% allow for the possibility there may be a mix of POC versions in the POC CF
     %% this can happen when transitioning from hotspot generated POCs -> validator generated POCs
@@ -2227,8 +2228,7 @@ maybe_gc_pocs(_Chain, Ledger, validator) ->
             %% the public poc will be GCed as part of that absorb
             %% but in case that fails we will GC it here after giving
             %% the txn N blocks to be absorbed
-            %% TODO - make '200' below a chain var or reuse existing challenge interval
-            case (CurHeight - POCStartHeight) > 200  of
+            case (CurHeight - POCStartHeight) > (POCTimeout + POCReceiptsAbsorbTimeout)  of
                 true ->
                     %% the lifespan of the POC for this key has passed, we can GC
                     ok = delete_public_poc(OnionKeyHash, Ledger);

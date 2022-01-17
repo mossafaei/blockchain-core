@@ -144,8 +144,14 @@
 %% Allow to switch POC version
 -define(poc_version, poc_version).
 
-%% Number of blocks after a POC is started at which point it will timeout/expire.
+%% Number of blocks after a POC is started at which point it will timeout/expire: integer
 -define(poc_timeout, poc_timeout).
+
+%% Number of blocks after poc_timeout at which point the poc public data will be deleted from the ledger: integer
+%% NOTE: the public poc data is required as part of the receipt_v2 txn validations
+%%       and so this value must be sufficient as to give time for absorb to occur
+-define(poc_receipts_absorb_timeout, poc_receipts_absorb_timeout).
+
 
 %% Number of blocks to wait before a hotspot can be eligible to participate in a poc
 %% challenge. This would avoid new hotspots getting challenged before they sync to an

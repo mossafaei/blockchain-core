@@ -901,6 +901,9 @@ validate_var(?poc_challenge_rate, Value) ->
     validate_int(Value, "poc_challenge_rate", 1, 1000, false);
 validate_var(?poc_timeout, Value) ->
     validate_int(Value, "poc_timeout", 1, 1000, false);
+validate_var(?poc_receipts_absorb_timeout, Value) ->
+    validate_int(Value, "poc_receipts_absorb_timeout", 10, 10000, false);
+
 validate_var(?poc_challenger_type, Value) ->
     case Value of
         validator ->
