@@ -2142,8 +2142,8 @@ maybe_gc_pocs(_Chain, Ledger, validator) ->
     %% 'expected' to be absorbed
     {ok, CurHeight} = current_height(Ledger),
     POCsCF = pocs_cf(Ledger),
-    {ok, POCTimeout} = blockchain:config(?poc_timeout, Ledger),
-    {ok, POCReceiptsAbsorbTimeout} = blockchain:config(?poc_receipts_absorb_timeout, Ledger),
+    {ok, POCTimeout} = get_config(?poc_timeout, Ledger, 10),
+    {ok, POCReceiptsAbsorbTimeout} = get_config(?poc_receipts_absorb_timeout, Ledger, 50),
 
     %% allow for the possibility there may be a mix of POC versions in the POC CF
     %% this can happen when transitioning from hotspot generated POCs -> validator generated POCs
@@ -5252,6 +5252,11 @@ get_sc_mod(Channel, Ledger) ->
         _ -> blockchain_ledger_state_channel_v1
     end.
 
+get_config(Var, Ledger, Default) ->
+    case blockchain:config(Var, Ledger) of
+        {ok, V} -> {ok, V};
+        _ -> {ok, Default}
+    end.
 %%--------------------------------------------------------------------
 %% @doc
 %% This function allows us to get a lower sc_max_actors for testing
