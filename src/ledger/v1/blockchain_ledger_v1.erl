@@ -2190,63 +2190,75 @@ maybe_gc_pocs(_Chain, Ledger, validator) ->
     %% of when the active POC would have ended
     %% and any receipts txn would have been
     %% 'expected' to be absorbed
+    %% a public poc is a representation of the data
+    %% included in a block as part of poc metadata
+    %% we need to keep it available on the ledger
+    %% until after the associated receipt v2 txn has
+    %% has been absorbed or would have been expected
+    %% to be absorbed
     {ok, CurHeight} = current_height(Ledger),
-    POCsCF = pocs_cf(Ledger),
-    {ok, POCTimeout} = get_config(?poc_timeout, Ledger, 10),
-    {ok, POCReceiptsAbsorbTimeout} = get_config(?poc_receipts_absorb_timeout, Ledger, 50),
+    %%  set GC point off by one so it doesnt align with so many other gc processes
+    case CurHeight rem 101 == 0 of
+        true ->
+            POCsCF = pocs_cf(Ledger),
+            {ok, POCTimeout} = get_config(?poc_timeout, Ledger, 10),
+            {ok, POCReceiptsAbsorbTimeout} = get_config(?poc_receipts_absorb_timeout, Ledger, 50),
 
-    %% allow for the possibility there may be a mix of POC versions in the POC CF
-    %% this can happen when transitioning from hotspot generated POCs -> validator generated POCs
-    %% or the reverse
-    %% anything other than V3s we will want to GC no matter what
-    %% V3s we will GC if lifespan is up
-    {V3PoCs, NonV3PoCs} = cache_fold(
-      Ledger,
-      POCsCF,
-      fun
-          ({_KeyHash, <<3, _Bin/binary>> = PoCBin} = PoC, {V3PoCsAcc, NonV3PoCsAcc}) ->
-              try
-                  V3PoC = blockchain_ledger_poc_v3:deserialize(PoCBin),
-                   {[V3PoC | V3PoCsAcc], NonV3PoCsAcc}
-              catch _:_ ->
-                  lager:info("could not decode v3 poc, possible wrong version, added to GC list: ~p", [PoC]),
-                  {V3PoCsAcc, [PoC | NonV3PoCsAcc]}
-              end;
-          ({_KeyHash, _NonV3PoCBin} = PoC, {V3PoCsAcc, NonV3PoCsAcc}) ->
-              lager:info("non v3 poc, added to GC list: ~p", [PoC]),
-              {V3PoCsAcc, [PoC | NonV3PoCsAcc]}
-      end,
-      {[], []}
-     ),
+            %% allow for the possibility there may be a mix of POC versions in the POC CF
+            %% this can happen when transitioning from hotspot generated POCs -> validator generated POCs
+            %% or the reverse
+            %% anything other than V3s we will want to GC no matter what
+            %% V3s we will GC if lifespan is up
+            {V3PoCs, NonV3PoCs} = cache_fold(
+              Ledger,
+              POCsCF,
+              fun
+                  ({_KeyHash, <<3, _Bin/binary>> = PoCBin} = PoC, {V3PoCsAcc, NonV3PoCsAcc}) ->
+                      try
+                          V3PoC = blockchain_ledger_poc_v3:deserialize(PoCBin),
+                           {[V3PoC | V3PoCsAcc], NonV3PoCsAcc}
+                      catch _:_ ->
+                          lager:info("could not decode v3 poc, possible wrong version, added to GC list: ~p", [PoC]),
+                          {V3PoCsAcc, [PoC | NonV3PoCsAcc]}
+                      end;
+                  ({_KeyHash, _NonV3PoCBin} = PoC, {V3PoCsAcc, NonV3PoCsAcc}) ->
+                      lager:info("non v3 poc, added to GC list: ~p", [PoC]),
+                      {V3PoCsAcc, [PoC | NonV3PoCsAcc]}
+              end,
+              {[], []}
+             ),
 
-    %% iterative over the V3 POCs and check if any need to be GCed
-    lists:foreach(
-        fun(V3PoC) ->
-            POCStartHeight = blockchain_ledger_poc_v3:start_height(V3PoC),
-            OnionKeyHash = blockchain_ledger_poc_v3:onion_key_hash(V3PoC),
-            %% the public poc data is required by the receipts v2 txn absorb
-            %% the public poc will be GCed as part of that absorb
-            %% but in case that fails we will GC it here after giving
-            %% the txn N blocks to be absorbed
-            case (CurHeight - POCStartHeight) > (POCTimeout + POCReceiptsAbsorbTimeout)  of
-                true ->
-                    %% the lifespan of the POC for this key has passed, we can GC
-                    ok = delete_public_poc(OnionKeyHash, Ledger);
-                _ ->
-                    ok
-            end
-        end,
-        V3PoCs
-    ),
+            %% iterative over the V3 POCs and check if any need to be GCed
+            lists:foreach(
+                fun(V3PoC) ->
+                    POCStartHeight = blockchain_ledger_poc_v3:start_height(V3PoC),
+                    OnionKeyHash = blockchain_ledger_poc_v3:onion_key_hash(V3PoC),
+                    %% the public poc data is required by the receipts v2 txn absorb
+                    %% the public poc will be GCed as part of that absorb
+                    %% but in case that fails we will GC it here after giving
+                    %% the txn N blocks to be absorbed
+                    case (CurHeight - POCStartHeight) > (POCTimeout + POCReceiptsAbsorbTimeout)  of
+                        true ->
+                            %% the lifespan of the POC for this key has passed, we can GC
+                            ok = delete_public_poc(OnionKeyHash, Ledger);
+                        _ ->
+                            ok
+                    end
+                end,
+                V3PoCs
+            ),
 
-    %% iterative over the non V3 POCs and delete each
-    lager:debug("Non V3 POCs to be GCed ~p", [NonV3PoCs]),
-    lists:foreach(
-      fun({KeyHash, _NonV3PoC}) ->
-          cache_delete(Ledger, POCsCF, KeyHash)
-      end,
-      NonV3PoCs),
-    ok;
+            %% iterative over the non V3 POCs and delete each
+            lager:debug("Non V3 POCs to be GCed ~p", [NonV3PoCs]),
+            lists:foreach(
+              fun({KeyHash, _NonV3PoC}) ->
+                  cache_delete(Ledger, POCsCF, KeyHash)
+              end,
+              NonV3PoCs),
+            ok;
+
+        _ -> ok
+    end;
 maybe_gc_pocs(Chain, Ledger, _) ->
     {ok, Height} = current_height(Ledger),
     Version = case ?MODULE:config(?poc_version, Ledger) of
