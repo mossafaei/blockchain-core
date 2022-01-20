@@ -1,12 +1,12 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc blockchain_poc_target_v4 implementation.
+%%% @doc blockchain_poc_target_v5 implementation.
 %%%
 %%% The targeting mechanism is based on the following conditions:
 %%% - Deterministically i dentify a target region based on public key
 %%% - Deterministically select a challengee from target region based on private key
 %%%
 %%%-----------------------------------------------------------------------------
--module(blockchain_poc_target_v4).
+-module(blockchain_poc_target_v5).
 
 -include_lib("blockchain/include/blockchain_utils.hrl").
 -include_lib("blockchain/include/blockchain_vars.hrl").
