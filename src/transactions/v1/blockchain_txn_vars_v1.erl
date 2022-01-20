@@ -819,7 +819,7 @@ validate_var(?witness_refresh_rand_n, Value) ->
     validate_int(Value, "witness_refresh_rand_n", 50, 1000, false);
 
 validate_var(?witness_storage_limit, Value) ->
-    validate_int(Value, "witness_refresh_rand_n", 0, 500, false);
+    validate_int(Value, "witness_storage_limit", 0, 250, false);
 
 %% meta vars
 validate_var(?vars_commit_delay, Value) ->

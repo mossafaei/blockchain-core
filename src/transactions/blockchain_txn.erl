@@ -872,6 +872,7 @@ absorb_aux(Block0, Chain0) ->
 plain_absorb_(Block, Chain0) ->
     case ?MODULE:absorb_block(Block, Chain0) of
         {ok, _} ->
+            %% see if we can change this into a get_hash call
             Hash = blockchain_block:hash_block(Block),
             Ledger0 = blockchain:ledger(Chain0),
             ok = blockchain_ledger_v1:maybe_gc_pocs(Chain0, Ledger0),
