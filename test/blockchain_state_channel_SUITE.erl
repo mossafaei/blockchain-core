@@ -9,6 +9,7 @@
     all/0,
     test_cases/0,
     init_per_group/2, end_per_group/2,
+    init_per_suite/1, end_per_suite/1,
     init_per_testcase/2, end_per_testcase/2
 ]).
 
@@ -82,6 +83,9 @@ test_cases() ->
 %%--------------------------------------------------------------------
 %% TEST CASE SETUP
 %%--------------------------------------------------------------------
+
+init_per_suite(Config) ->
+    [{sc_client_transport_handler, blockchain_state_channel_handler} | Config].
 
 %% NOTE: If you're running individual tests 'sc_client_transport_handler` will be unset.
 %% Run with --group=(sc_libp2p | sc_grpc)
@@ -250,6 +254,9 @@ end_per_testcase(Test, Config) ->
     blockchain_ct_utils:end_per_testcase(Test, Config).
 
 end_per_group(_, _Config) ->
+    ok.
+
+end_per_suite(_) ->
     ok.
 
 %%--------------------------------------------------------------------
