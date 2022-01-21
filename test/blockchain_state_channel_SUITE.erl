@@ -2387,7 +2387,7 @@ add_and_gossip_fake_blocks(NumFakeBlocks, ConsensusMembers, Node, Swarm, Chain, 
 
 setup_meck_txn_forwarding(Node, From) ->
     ok = ct_rpc:call(Node, meck_test_util, forward_submit_txn, [From]),
-    ok = ct_rpc:call(Node, blockchain_txn_mgr, submit, [fake_txn, fun(_, _) -> ok end]),
+    ok = ct_rpc:call(Node, blockchain_txn_mgr, submit, [fake_txn, fun(_) -> ok end]),
     receive
         {txn, fake_txn} ->
             ct:pal("Got fake_txn test"),
