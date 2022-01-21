@@ -1552,6 +1552,7 @@ add_gateway(OwnerAddr,
                         {ok, Res} = blockchain:config(?poc_target_hex_parent_res, Ledger),
                         Hex = h3:parent(Location, Res),
                         add_to_hex(Hex, GatewayAddress, Ledger),
+                        add_gw_to_hex(Hex, GatewayAddress, Ledger),
                         NewGw0;
                     {ok, V} when V > 3 ->
                         Gateways = active_gateways(Ledger),
@@ -4589,7 +4590,7 @@ add_gw_to_hex(Hex, GWAddr, Ledger) ->
                     %% hexes
                     case blockchain:config(?poc_target_hex_parent_res, Ledger) of
                         {ok, Res} ->
-                            build_random_hex_targeting_lookup(Ledger, Res);
+                            build_random_hex_targeting_lookup(Res, Ledger);
                         _ ->
                             ok
                     end;
@@ -4623,7 +4624,7 @@ remove_gw_from_hex(Hex, GWAddr, Ledger) ->
                             %% hexes
                             case blockchain:config(?poc_target_hex_parent_res, Ledger) of
                                 {ok, Res} ->
-                                    build_random_hex_targeting_lookup(Ledger, Res);
+                                    build_random_hex_targeting_lookup(Res, Ledger);
                                 _ ->
                                     ok
                             end;

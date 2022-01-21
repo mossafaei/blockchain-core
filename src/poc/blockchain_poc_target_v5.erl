@@ -151,11 +151,7 @@ filter(AddrList, Ledger, _Height, _Vars) ->
         fun(A) ->
             {ok, Gateway} = blockchain_ledger_v1:find_gateway_info(A, Ledger),
             Mode = blockchain_ledger_gateway_v2:mode(Gateway),
-            blockchain_ledger_gateway_v2:is_valid_capability(
-                    Mode,
-                    ?GW_CAPABILITY_POC_CHALLENGEE,
-                    Ledger
-                )
+            blockchain_ledger_gateway_v2:is_valid_capability(Mode, ?GW_CAPABILITY_POC_CHALLENGEE, Ledger)
         end,
         AddrList
     ).
@@ -181,8 +177,8 @@ hex_list(Ledger, RandState, Count, Acc) ->
         0 ->
             %% this should not happen, but handle it anyway
             hex_list(Ledger, NewRandState, Count, Acc);
-        Count ->
-            hex_list(Ledger, NewRandState, Count - 1, [{Hex, Count}|Acc])
+        N ->
+            hex_list(Ledger, NewRandState, Count - 1, [{Hex, N}|Acc])
     end.
 
 -spec choose_zone(

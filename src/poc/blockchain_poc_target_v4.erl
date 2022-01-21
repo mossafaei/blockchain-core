@@ -103,8 +103,8 @@ hex_list(Ledger, RandState, Count, Acc) ->
         0 ->
             %% this should not happen, but handle it anyway
             hex_list(Ledger, NewRandState, Count, Acc);
-        Count ->
-            hex_list(Ledger, NewRandState, Count - 1, [{Hex, Count}|Acc])
+        N ->
+            hex_list(Ledger, NewRandState, Count - 1, [{Hex, N}|Acc])
     end.
 
 
