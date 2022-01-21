@@ -2326,6 +2326,9 @@ get_consensus_members(Config, ConsensusAddrs) ->
                                          end
                                  end, [], Nodes)).
 
+
+create_oui_txn(OUI, RouterNode, [], SubnetSize) ->
+    create_oui_txn(OUI, RouterNode, [{16#deadbeef, 16#deadc0de}], SubnetSize);
 create_oui_txn(OUI, RouterNode, EUIs, SubnetSize) ->
     {ok, RouterPubkey, RouterSigFun, _} = ct_rpc:call(RouterNode, blockchain_swarm, keys, []),
     RouterPubkeyBin = libp2p_crypto:pubkey_to_bin(RouterPubkey),
