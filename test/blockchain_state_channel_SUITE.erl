@@ -94,6 +94,18 @@ init_per_group(sc_libp2p, Config) ->
 init_per_group(sc_grpc, Config) ->
     [{sc_client_transport_handler, blockchain_grpc_sc_client_test_handler} | Config].
 
+debug_modules_for_node(_, _, []) ->
+    ok;
+debug_modules_for_node(Node, Filename, [Module | Rest]) ->
+    {ok, _} = ct_rpc:call(
+                Node,
+                lager,
+                trace_file,
+                [Filename, [{module, Module}], debug]
+               ),
+    debug_modules_for_node(Node, Filename, Rest).
+
+
 init_per_testcase(Test, Config) ->
     application:ensure_all_started(throttle),
     application:ensure_all_started(lager),
@@ -107,49 +119,23 @@ init_per_testcase(Test, Config) ->
 
     [RouterNode, GatewayNode1|_] = Nodes,
     Dir = os:getenv("SC_DIR", ""),
-    {ok, _} = ct_rpc:call(
-        RouterNode,
-        lager,
-        trace_file,
-        [Dir ++ "sc_server.log", [{module, blockchain_state_channels_server}], debug]
-    ),
-    {ok, _} = ct_rpc:call(
-        RouterNode,
-        lager,
-        trace_file,
-        [Dir ++ "sc_server.log", [{module, blockchain_state_channel_handler}], debug]
-    ),
-    {ok, _} = ct_rpc:call(
-        RouterNode,
-        lager,
-        trace_file,
-        [Dir ++ "sc_server.log", [{module, blockchain_state_channel_v1}], debug]
-    ),
-    {ok, _} = ct_rpc:call(
-        RouterNode,
-        lager,
-        trace_file,
-        [Dir ++ "sc_server.log", [{module, blockchain_state_channels_worker}], debug]
-    ),
-    {ok, _} = ct_rpc:call(
-        RouterNode,
-        lager,
-        trace_file,
-        [Dir ++ "sc_server.log", [{module, blockchain_state_channels_cache}], debug]
-    ),
-
-    {ok, _} = ct_rpc:call(
-        GatewayNode1,
-        lager,
-        trace_file,
-        [Dir ++ "sc_client.log", [{module, blockchain_state_channels_client}], debug]
-    ),
-    {ok, _} = ct_rpc:call(
-        GatewayNode1,
-        lager,
-        trace_file,
-        [Dir ++ "sc_client.log", [{module, blockchain_state_channel_handler}], debug]
-    ),
+    debug_modules_for_node(
+      RouterNode,
+      Dir ++ "sc_server.log",
+      [blockchain_state_channel_v1,
+       blockchain_state_channels_cache,
+       blockchain_state_channels_handler,
+       blockchain_state_channels_server,
+       blockchain_state_channels_worker,
+       blockchain_txn_state_channel_close_v1]
+     ),
+    debug_modules_for_node(
+      GatewayNode1,
+      Dir ++ "sc_client_1.log",
+      [blockchain_state_channel_v1,
+       blockchain_state_channels_client,
+       blockchain_state_channels_handler]
+     ),
 
     %% accumulate the address of each node
     Addrs = lists:foldl(fun(Node, Acc) ->
