@@ -1377,26 +1377,43 @@ dc_reward(Txn, End, AccIn, Ledger, #{ sc_grace_blocks := GraceBlocks,
                                     %% pull out the final version of the state channel
                                     FinalSC = blockchain_ledger_state_channel_v2:state_channel(SC),
                                     RewardVersion = maps:get(reward_version, Vars, 1),
+                                    CloseState = blockchain_ledger_state_channel_v2:close_state(SC),
 
-                                    Summaries = case RewardVersion > 3 of
-                                                    %% reward version 4 normalizes payouts
-                                                    true -> blockchain_state_channel_v1:summaries(blockchain_state_channel_v1:normalize(FinalSC));
-                                                    false -> blockchain_state_channel_v1:summaries(FinalSC)
-                                                end,
-                                    %% check the dispute status
-                                    Bonus = case blockchain_ledger_state_channel_v2:close_state(SC) of
-                                                %% Reward version 4 or higher just slashes overcommit
-                                                dispute when RewardVersion < 4 ->
-                                                    %% the owner of the state channel
-                                                    %% did a naughty thing, divide
-                                                    %% their overcommit between the
-                                                    %% participants
-                                                    OverCommit = blockchain_ledger_state_channel_v2:amount(SC)
-                                                        - blockchain_ledger_state_channel_v2:original(SC),
-                                                    OverCommit div length(Summaries);
-                                                _ ->
-                                                    0
-                                            end,
+                                    SCDisputePrevention = case blockchain:config(?sc_dispute_prevention, Ledger) of
+                                                              {ok, V2} -> V2;
+                                                              _ -> false
+                                                          end,
+                                    {Summaries, Bonus} =
+                                        case {SCDisputePrevention, CloseState} of
+                                            {true, dispute} ->
+                                                %% When sc_dispute_prevention is active we want to 0 out as much as possible.
+                                                %% No Bonuses, no summaries.
+                                                {[], 0};
+                                            {_, _} ->
+
+                                                InnerSummaries = case RewardVersion > 3 of
+                                                                     %% reward version 4 normalizes payouts
+                                                                     true -> blockchain_state_channel_v1:summaries(blockchain_state_channel_v1:normalize(FinalSC));
+                                                                     false -> blockchain_state_channel_v1:summaries(FinalSC)
+                                                                 end,
+
+                                                %% check the dispute status
+                                                InnerBonus = case blockchain_ledger_state_channel_v2:close_state(SC) of
+                                                                 %% Reward version 4 or higher just slashes overcommit
+                                                                 dispute when RewardVersion < 4 ->
+                                                                     %% the owner of the state channel
+                                                                     %% did a naughty thing, divide
+                                                                     %% their overcommit between the
+                                                                     %% participants
+
+                                                                     OverCommit = blockchain_ledger_state_channel_v2:amount(SC)
+                                                                         - blockchain_ledger_state_channel_v2:original(SC),
+                                                                     OverCommit div length(InnerSummaries);
+                                                                 _ ->
+                                                                     0
+                                                             end,
+                                                {InnerSummaries, InnerBonus}
+                                        end,
 
                                     lists:foldl(fun(Summary, A) ->
                                                         Key = blockchain_state_channel_summary_v1:client_pubkeybin(Summary),
