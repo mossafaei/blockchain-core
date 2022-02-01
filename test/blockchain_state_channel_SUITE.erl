@@ -27,7 +27,7 @@
     open_without_oui_test/1,
     max_scs_open_test/1,
     max_scs_open_v2_test/1,
-    sc_dispute_test/1,
+    sc_dispute_prevention_test/1,
     oui_not_found_test/1,
     unknown_owner_test/1,
     crash_single_sc_test/1,
@@ -72,7 +72,7 @@ test_cases() ->
         open_without_oui_test,
         max_scs_open_test,
         max_scs_open_v2_test,
-        sc_dispute_test,
+        sc_dispute_prevention_test,
         oui_not_found_test,
         unknown_owner_test,
         crash_single_sc_test,
@@ -1618,7 +1618,7 @@ max_scs_open_v2_test(Config) ->
     {ok, _Block31} = ct_rpc:call(RouterNode, test_utils, create_block, [ConsensusMembers, [SignedSCOpenTxn3]]),
     ok.
 
-sc_dispute_test(Config) ->
+sc_dispute_prevention_test(Config) ->
     [RouterNode, GatewayNode1, GatewayNode2 |_] = ?config(nodes, Config),
     ConsensusMembers = ?config(consensus_members, Config),
 
