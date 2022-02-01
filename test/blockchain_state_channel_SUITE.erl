@@ -187,7 +187,8 @@ init_per_testcase(Test, Config) ->
         sc_grace_blocks => 5,
         dc_payload_size => 24,
         sc_max_actors => 100,
-        sc_version => 2 %% we are focring 2 for all test as 1 is just rly old now
+        sc_version => 2, %% we are focring 2 for all test as 1 is just rly old now
+        sc_dispute_prevention => (Test == sc_dispute_prevention_test)
     },
 
     {InitialVars, {master_key, MasterKey}} = blockchain_ct_utils:create_vars(maps:merge(DefaultVars, ExtraVars)),
@@ -1622,6 +1623,8 @@ sc_dispute_prevention_test(Config) ->
     [RouterNode, GatewayNode1, GatewayNode2 |_] = ?config(nodes, Config),
     ConsensusMembers = ?config(consensus_members, Config),
 
+    %% NOTE: sc_dispute_prevention chain var is toggled for this test in init_per_test_case/2
+
     Self = self(),
     ok = setup_meck_txn_forwarding(RouterNode, Self),
     ok = setup_meck_txn_forwarding(GatewayNode1, Self),
@@ -1775,11 +1778,15 @@ sc_dispute_prevention_test(Config) ->
     %% wait until this block has made it everywhere
     AddFakeBlocksFn(1, 18, [RouterNode, GatewayNode1, GatewayNode1]),
 
+    %% REVIEW: How can I assert something here about the rewards?
+    {ok, Rewards2} = ct_rpc:call(RouterNode, blockchain_txn_rewards_v2, calculate_rewards, [5, 18, RouterChain]),
+    ct:pal("PubkeyBins: ~n~p", [[{routernode, RouterPubkeyBin}, {gateway_1, Gateway1PubkeyBin}, {gateway_2, Gateway2PubkeyBin}]]),
+    ct:pal("disputed Rewards: ~p", [lager:pr(Rewards2, blockchain_txn_rewards_v2)]),
+
     %% Check that the state that was first closed by routernode, is in dispute
     {ok, LedgerSC} = ct_rpc:call(RouterNode, blockchain_ledger_v1, find_state_channel, [ID1, RouterPubkeyBin, RouterLedger]),
     ct:pal("Ledger SC: ~p", [lager:pr(LedgerSC, ledger_state_channel_v2)]),
     ?assertEqual(dispute, blockchain_ledger_state_channel_v2:close_state(LedgerSC)),
-
 
     %% ===================================================================
     %% The unsubmitted close dispute is no longer valid
