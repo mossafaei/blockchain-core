@@ -1738,6 +1738,18 @@ sc_dispute_prevention_test(Config) ->
     end,
 
     %% ===================================================================
+    %% We've added the state channel to the chain. Rewards should be able to be
+    %% determined, and there should be some for the gateways involved.
+
+    ok = blockchain_ct_utils:wait_until_height(RouterNode, 16),
+
+    %% REVIEW: How can I assert something here about the rewards?
+    %% Nothing has been disputed yet.
+    {ok, Rewards1} = ct_rpc:call(RouterNode, blockchain_txn_rewards_v1, calculate_rewards, [5, 16, RouterChain]),
+    ct:pal("PubkeyBins: ~n~p", [[{routernode, RouterPubkeyBin}, {gateway_1, Gateway1PubkeyBin}, {gateway_2, Gateway2PubkeyBin}]]),
+    ct:pal("potential Rewards: ~p", [lager:pr(Rewards1, blockchain_txn_rewards_v1)]),
+
+    %% ===================================================================
     %% Make two disputes that are both valid before they are submitted
 
     {SC1, true} = blockchain_state_channel_v1:update_summary_for(
@@ -1767,7 +1779,8 @@ sc_dispute_prevention_test(Config) ->
     Res2 = ct_rpc:call(RouterNode, blockchain_txn_state_channel_close_v1, is_valid, [SignedTxn2, RouterChain]),
     ?assertEqual(ok, Res2, "Our second dispute close is valid"),
 
-    %% We shouldn't be able to create a block with more than 1 dispute
+    %% Should not be able to create a block with more than 1 dispute
+    %% REVIEW: Even with sc_dispute_prevention `false' this line passes
     {error, {invalid_txns, [_]}} = add_block(RouterNode, RouterChain, ConsensusMembers, [SignedTxn1, SignedTxn1]),
 
     %% ===================================================================
