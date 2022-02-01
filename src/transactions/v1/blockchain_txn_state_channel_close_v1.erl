@@ -151,6 +151,10 @@ is_valid(Txn, Chain) ->
                     _ ->
                         0
                 end,
+    SCDisputePrevention = case blockchain:config(?sc_dispute_prevention, Ledger) of
+                              {ok, V2} -> V2;
+                              _ -> false
+                          end,
     %% first check if it's time to expire
     case SCVersion == 0 orelse
          (LedgerHeight >= ExpiresAt andalso
@@ -177,8 +181,8 @@ is_valid(Txn, Chain) ->
                                     {error, state_channel_not_open};
                                 {ok, LedgerSC} ->
                                     CloseState = blockchain_ledger_state_channel_v2:close_state(LedgerSC),
-                                    case CloseState of
-                                        dispute -> {error, already_disputed};
+                                    case {CloseState, SCDisputePrevention} of
+                                        {dispute, true} -> {error, already_disputed};
                                         _ ->
                                             case Owner == Closer of
                                                 %% check the owner's close conditions
