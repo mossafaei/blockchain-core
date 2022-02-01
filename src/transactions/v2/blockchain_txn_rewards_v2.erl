@@ -1824,7 +1824,9 @@ dc_rewards_sc_dispute_prevention_test() ->
     DCShares = dc_reward(SCClose, 100, #{}, Ledger1, Vars),
 
     %% We only care that no rewards are generated when sc_dispute_prevention is active.
-    ?assertMatch({_, #{}}, normalize_dc_rewards(DCShares, Vars)),
+    {Res, M} = normalize_dc_rewards(DCShares, Vars),
+    ?assertEqual(#{}, M, "no summaries in rewards map"),
+    ?assertEqual(30000, Res),
     test_utils:cleanup_tmp_dir(BaseDir).
 
 dc_rewards_v3_test() ->
