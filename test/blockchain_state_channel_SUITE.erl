@@ -1670,7 +1670,7 @@ sc_dispute_prevention_test(Config) ->
 
 
     %% Helpers
-    AddBlocks =
+    AddFakeBlocksFn =
         fun(NumBlocks, ExpectedBlock, Nodes) ->
                 ok = add_and_gossip_fake_blocks(NumBlocks, ConsensusMembers, RouterNode, RouterSwarm, RouterChain, Self),
                 lists:foreach(fun(Node) ->
@@ -1678,7 +1678,7 @@ sc_dispute_prevention_test(Config) ->
                               end, Nodes)
                 end,
 
-    SendPacket = fun(NumPackets, Gateway) ->
+    SendPacketsFn = fun(NumPackets, Gateway) ->
                          lists:foreach(
                            fun(_) ->
                                    DevNonce0 = crypto:strong_rand_bytes(2),
@@ -1690,18 +1690,17 @@ sc_dispute_prevention_test(Config) ->
                  end,
 
     %% Wait until Gateways have gotten blocks with OUI txn to send packets
-    AddBlocks(3, 5, [RouterNode, GatewayNode1]),
+    AddFakeBlocksFn(3, 5, [RouterNode, GatewayNode1]),
 
     %% ===================================================================
     %% Sending 10 packet from first gateway
-    SendPacket(10, GatewayNode1),
-    AddBlocks(1, 6, [RouterNode, GatewayNode1]),
+    SendPacketsFn(20, GatewayNode1),
+    AddFakeBlocksFn(1, 6, [RouterNode, GatewayNode1]),
 
-    %% ===================================================================
     %% Send packets from another gateway
-    %% Gateway2 needs to be state channel to dispute
-    SendPacket(4, GatewayNode2),
-    AddBlocks(1, 7, [RouterNode, GatewayNode1, GatewayNode2]),
+    %% Gateway2 needs to be involved state channel to dispute
+    SendPacketsFn(20, GatewayNode2),
+    AddFakeBlocksFn(1, 7, [RouterNode, GatewayNode1, GatewayNode2]),
 
     %% ===================================================================
     %% Wait until we can get a state channel with both summaries
@@ -1723,7 +1722,7 @@ sc_dispute_prevention_test(Config) ->
 
     %% ===================================================================
     %% Let the state channel expire and add to the chain
-    AddBlocks(8, 15, [RouterNode]),
+    AddFakeBlocksFn(8, 15, [RouterNode]),
 
     %% Adding the close txn to the chain
     receive
@@ -1774,7 +1773,7 @@ sc_dispute_prevention_test(Config) ->
     ok = ct_rpc:call(RouterNode, blockchain_gossip_handler, add_block, [B3, RouterChain, Self, RouterSwarm]),
 
     %% wait until this block has made it everywhere
-    AddBlocks(1, 18, [RouterNode, GatewayNode1, GatewayNode1]),
+    AddFakeBlocksFn(1, 18, [RouterNode, GatewayNode1, GatewayNode1]),
 
     %% Check that the state that was first closed by routernode, is in dispute
     {ok, LedgerSC} = ct_rpc:call(RouterNode, blockchain_ledger_v1, find_state_channel, [ID1, RouterPubkeyBin, RouterLedger]),
