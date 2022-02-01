@@ -341,7 +341,15 @@
 %% The "new" behavior (i.e., `true') is to count state channels
 %% that are only in the open state and ignore closed channels.
 -define(sc_only_count_open_active, sc_only_count_open_active).
-
+%% Whether to allow _all_ actors in a state channel to dispute a close.
+%% The "old" behavior `false' will attempt to merge all disputes and
+%% reconcile a way to pay out rewards for the closed state channel.
+%%
+%% The "new" behavior `true' will accept a single dispute, then ignore any that follow.
+%% There will be no attempt at reconciling DC for payout, the opener will lose
+%% everything that wasn't spoken for, and the participants will receive no
+%% rewards for transferring data.
+-define(sc_dispute_prevention, sc_dispute_prevention).
 
 %% ------------------------------------------------------------------
 %% snapshot vars

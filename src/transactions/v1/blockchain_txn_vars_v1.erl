@@ -1095,6 +1095,12 @@ validate_var(?sc_only_count_open_active, Value) ->
         false -> ok;
         Other -> throw({error, {invalid_sc_only_count_open_active_value, Other}})
     end;
+validate_var(?sc_dispute_prevention, Value) ->
+    case Value of
+        true -> ok;
+        false -> ok;
+        Other -> throw({error, {invalid_sc_dispute_prevention_value, Other}})
+    end;
 
 %% txn snapshot vars
 validate_var(?snapshot_version, Value) ->
