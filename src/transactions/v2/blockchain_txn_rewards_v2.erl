@@ -1768,6 +1768,52 @@ poc_witnesses_rewards_test() ->
     ?assertEqual(Rewards, normalize_witness_rewards(WitnessShares, EpochVars)),
     test_utils:cleanup_tmp_dir(BaseDir).
 
+dc_rewards_sc_dispute_prevention_test() ->
+    BaseDir = test_utils:tmp_dir("dc_rewards_dispute_sc_test"),
+    Ledger = blockchain_ledger_v1:new(BaseDir),
+    Ledger1 = blockchain_ledger_v1:new_context(Ledger),
+
+    Vars = #{
+        epoch_reward => 100000,
+        dc_percent => 0.3,
+        consensus_percent => 0.06 + 0.025,
+        poc_challengees_percent => 0.18,
+        poc_challengers_percent => 0.0095,
+        poc_witnesses_percent => 0.0855,
+        securities_percent => 0.34,
+        sc_version => 2,
+        sc_grace_blocks => 5,
+        reward_version => 4,
+        oracle_price => 100000000, %% 1 dollar
+        consensus_members => [<<"c">>, <<"d">>],
+        %% This is the important part of what's being tested here.
+        sc_dispute_prevention => true
+    },
+
+    LedgerVars = maps:merge(#{?poc_version => 5, ?sc_version => 2, ?sc_grace_blocks => 5}, common_poc_vars()),
+    ok = blockchain_ledger_v1:vars(LedgerVars, [], Ledger1),
+
+    {SC0, _} = blockchain_state_channel_v1:new(<<"id">>, <<"owner">>, 100, <<"blockhash">>, 10),
+    SC = blockchain_state_channel_v1:summaries([blockchain_state_channel_summary_v1:new(<<"a">>, 1, 1), blockchain_state_channel_summary_v1:new(<<"b">>, 2, 2)], SC0),
+    SCDispute = blockchain_state_channel_v1:summaries([blockchain_state_channel_summary_v1:new(<<"a">>, 2, 2), blockchain_state_channel_summary_v1:new(<<"b">>, 3, 3)], SC0),
+
+    ok = blockchain_ledger_v1:add_state_channel(<<"id">>, <<"owner">>, 10, 1, 100, 200, Ledger1),
+    {ok, _} = blockchain_ledger_v1:find_state_channel(<<"id">>, <<"owner">>, Ledger1),
+
+    ok = blockchain_ledger_v1:close_state_channel(<<"owner">>, <<"owner">>, SC, <<"id">>, false, Ledger1),
+    {ok, _} = blockchain_ledger_v1:find_state_channel(<<"id">>, <<"owner">>, Ledger1),
+
+    ok = blockchain_ledger_v1:close_state_channel(<<"owner">>, <<"a">>, SCDispute, <<"id">>, true, Ledger1),
+
+    SCClose = blockchain_txn_state_channel_close_v1:new(SC, <<"owner">>),
+    {ok, _DCsInEpochAsHNT} = blockchain_ledger_v1:dc_to_hnt(3, 100000000), %% 3 DCs burned at HNT price of 1 dollar
+
+    DCShares = dc_reward(SCClose, 100, #{}, Ledger1, Vars),
+
+    %% We only care that no rewards are generated when sc_dispute_prevention is active.
+    ?assertMatch({_, #{}}, normalize_dc_rewards(DCShares, Vars)),
+    test_utils:cleanup_tmp_dir(BaseDir).
+
 dc_rewards_v3_test() ->
     BaseDir = test_utils:tmp_dir("dc_rewards_v3_test"),
     Ledger = blockchain_ledger_v1:new(BaseDir),
@@ -1783,6 +1829,7 @@ dc_rewards_v3_test() ->
         securities_percent => 0.34,
         sc_version => 2,
         sc_grace_blocks => 5,
+        sc_dispute_prevention => false,
         reward_version => 3,
         oracle_price => 100000000, %% 1 dollar
         consensus_members => [<<"c">>, <<"d">>]
