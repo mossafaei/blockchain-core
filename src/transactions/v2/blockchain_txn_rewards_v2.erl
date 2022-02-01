@@ -1378,11 +1378,7 @@ dc_reward(Txn, End, AccIn, Ledger, #{ sc_grace_blocks := GraceBlocks,
                                     FinalSC = blockchain_ledger_state_channel_v2:state_channel(SC),
                                     RewardVersion = maps:get(reward_version, Vars, 1),
                                     CloseState = blockchain_ledger_state_channel_v2:close_state(SC),
-
-                                    SCDisputePrevention = case blockchain:config(?sc_dispute_prevention, Ledger) of
-                                                              {ok, V2} -> V2;
-                                                              _ -> false
-                                                          end,
+                                    SCDisputePrevention = maps:get(?sc_dispute_prevention, Vars, false),
                                     {Summaries, Bonus} =
                                         case {SCDisputePrevention, CloseState} of
                                             {true, dispute} ->
