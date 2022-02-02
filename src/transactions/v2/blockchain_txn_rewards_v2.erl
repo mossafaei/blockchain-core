@@ -1807,18 +1807,18 @@ dc_rewards_sc_dispute_prevention_test() ->
     ok = blockchain_ledger_v1:vars(LedgerVars, [], Ledger1),
 
     {SC0, _} = blockchain_state_channel_v1:new(<<"id">>, <<"owner">>, 100, <<"blockhash">>, 10),
-    SC = blockchain_state_channel_v1:summaries([blockchain_state_channel_summary_v1:new(<<"a">>, 1, 1), blockchain_state_channel_summary_v1:new(<<"b">>, 2, 2)], SC0),
+    SCValid = blockchain_state_channel_v1:summaries([blockchain_state_channel_summary_v1:new(<<"a">>, 1, 1), blockchain_state_channel_summary_v1:new(<<"b">>, 2, 2)], SC0),
     SCDispute = blockchain_state_channel_v1:summaries([blockchain_state_channel_summary_v1:new(<<"a">>, 2, 2), blockchain_state_channel_summary_v1:new(<<"b">>, 3, 3)], SC0),
 
     ok = blockchain_ledger_v1:add_state_channel(<<"id">>, <<"owner">>, 10, 1, 100, 200, Ledger1),
     {ok, _} = blockchain_ledger_v1:find_state_channel(<<"id">>, <<"owner">>, Ledger1),
 
-    ok = blockchain_ledger_v1:close_state_channel(<<"owner">>, <<"owner">>, SC, <<"id">>, false, Ledger1),
+    ok = blockchain_ledger_v1:close_state_channel(<<"owner">>, <<"owner">>, SCValid, <<"id">>, false, Ledger1),
     {ok, _} = blockchain_ledger_v1:find_state_channel(<<"id">>, <<"owner">>, Ledger1),
 
     ok = blockchain_ledger_v1:close_state_channel(<<"owner">>, <<"a">>, SCDispute, <<"id">>, true, Ledger1),
 
-    SCClose = blockchain_txn_state_channel_close_v1:new(SC, <<"owner">>),
+    SCClose = blockchain_txn_state_channel_close_v1:new(SCValid, <<"owner">>),
     {ok, _DCsInEpochAsHNT} = blockchain_ledger_v1:dc_to_hnt(3, 100000000), %% 3 DCs burned at HNT price of 1 dollar
 
     DCShares = dc_reward(SCClose, 100, #{}, Ledger1, Vars),
