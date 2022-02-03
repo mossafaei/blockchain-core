@@ -514,7 +514,6 @@ calculate_reward_for_txn(blockchain_txn_poc_receipts_v1 = T, Txn, _End,
     WitnessTime = erlang:monotonic_time(microsecond) - Start2,
     perf({T, witnesses}, WitnessTime),
     Acc2;
-    calculate_poc_witness_rewards(Txn, Acc1, Chain, Ledger, Vars);
 calculate_reward_for_txn(blockchain_txn_poc_receipts_v2, Txn, _End,
                          #{ poc_challenger := Challenger } = Acc, Chain, Ledger, Vars) ->
     Acc0 = poc_challenger_reward(Txn, Challenger, Vars),
