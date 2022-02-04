@@ -11,7 +11,6 @@
     challenger/1, challenger/2,
     block_hash/1, block_hash/2,
     start_height/1, start_height/2,
-    orig_version/1,
     verify/3,
     serialize/1, deserialize/1,
     rxtx/0, rx/0, tx/0, fail/0
@@ -26,8 +25,7 @@
     onion_key_hash :: binary(),
     challenger :: libp2p_crypto:pubkey_bin(),
     block_hash :: binary(),
-    start_height :: pos_integer(),
-    orig_version :: pos_integer()
+    start_height :: pos_integer()
 }).
 
 -define(RXTX, rxtx).
@@ -47,8 +45,7 @@ new(OnionKeyHash, Challenger, BlockHash, StartHeight) ->
         onion_key_hash=OnionKeyHash,
         challenger=Challenger,
         block_hash=BlockHash,
-        start_height=StartHeight,
-        orig_version = 3
+        start_height=StartHeight
     }.
 
 -spec onion_key_hash(poc()) -> binary().
@@ -83,31 +80,17 @@ start_height(PoC) ->
 start_height(Height, PoC) ->
     PoC#poc_v3{start_height=Height}.
 
--spec orig_version(poc()) -> pos_integer().
-orig_version(PoC) ->
-    PoC#poc_v3.orig_version.
-
 -spec verify(poc(), libp2p_crypto:pubkey_bin(), binary()) -> boolean().
 verify(PoC, Challenger, BlockHash) ->
     ?MODULE:challenger(PoC) =:= Challenger andalso ?MODULE:block_hash(PoC) =:= BlockHash.
 
 -spec serialize(poc()) -> binary().
 serialize(PoC) ->
-    %% intentionally don't compress here, we compress these in batches
-    %% in the ledger code, which should get better compression anyway
     BinPoC = erlang:term_to_binary(PoC),
     <<3, BinPoC/binary>>.
 
--spec deserialize(binary()) -> poc().
-deserialize(<<1, Bin/binary>>) ->
-    V1 = erlang:binary_to_term(Bin),
-    convert(V1);
-deserialize(<<2, Bin/binary>>) ->
-    V2 = erlang:binary_to_term(Bin),
-    convert(V2);
 deserialize(<<3, Bin/binary>>) ->
     erlang:binary_to_term(Bin).
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -141,41 +124,6 @@ tx() ->
 fail() ->
     ?FAIL.
 
--record(poc_v1, {
-    secret_hash :: binary(),
-    onion_key_hash :: binary(),
-    challenger :: libp2p_crypto:pubkey_bin()
-}).
--record(poc_v2, {
-    secret_hash :: binary(),
-    onion_key_hash :: binary(),
-    challenger :: libp2p_crypto:pubkey_bin(),
-    block_hash :: binary()
-}).
-
-convert(#poc_v1{
-                onion_key_hash=OnionKeyHash,
-                challenger=Challenger
-               }) ->
-    #poc_v3{
-        onion_key_hash=OnionKeyHash,
-        challenger=Challenger,
-        block_hash= <<>>,
-        start_height=1,
-        orig_version=1
-    };
-convert(#poc_v2{
-                onion_key_hash=OnionKeyHash,
-                challenger=Challenger,
-                block_hash=BlockHash
-               }) ->
-    #poc_v3{
-        onion_key_hash=OnionKeyHash,
-        challenger=Challenger,
-        block_hash= BlockHash,
-        start_height=1,
-        orig_version=2
-    }.
 %% ------------------------------------------------------------------
 %% EUNIT Tests
 %% ------------------------------------------------------------------
@@ -186,8 +134,7 @@ new_test() ->
         onion_key_hash= <<"some key bin">>,
         challenger = <<"address">>,
         block_hash = <<"block_hash">>,
-        start_height = 120000,
-        orig_version = 3
+        start_height = 120000
     },
     ?assertEqual(PoC, new(<<"some key bin">>, <<"address">>, <<"block_hash">>, 120000)).
 
@@ -210,9 +157,5 @@ start_height_test() ->
     PoC = new(<<"some key bin">>, <<"address">>, <<"block_hash">>, 120000),
     ?assertEqual(120000, start_height(PoC)),
     ?assertEqual(200000, start_height(start_height(200000, PoC))).
-
-orig_version_test() ->
-    PoC = new(<<"some key bin">>, <<"address">>, <<"block_hash">>, 120000),
-    ?assertEqual(3, orig_version(PoC)).
 
 -endif.
