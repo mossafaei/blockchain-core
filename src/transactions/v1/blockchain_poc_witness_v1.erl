@@ -33,7 +33,7 @@
 -endif.
 
 -type poc_witness() :: #blockchain_poc_witness_v1_pb{}.
--type poc_witnesses() :: [poc_witness()] | [].
+-type poc_witnesses() :: [poc_witness()].
 
 -export_type([poc_witness/0, poc_witnesses/0]).
 

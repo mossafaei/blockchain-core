@@ -898,11 +898,11 @@ validate_var(?min_assert_h3_res, Value) ->
 validate_var(?poc_challenge_interval, Value) ->
     validate_int(Value, "poc_challenge_interval", 10, 1440, false);
 validate_var(?poc_challenge_rate, Value) ->
-    validate_int(Value, "poc_challenge_rate", 1, 1000, false);
+    validate_int(Value, "poc_challenge_rate", 1, 10000, false);
 validate_var(?poc_timeout, Value) ->
-    validate_int(Value, "poc_timeout", 1, 1000, false);
+    validate_int(Value, "poc_timeout", 1, 50, false);
 validate_var(?poc_receipts_absorb_timeout, Value) ->
-    validate_int(Value, "poc_receipts_absorb_timeout", 10, 10000, false);
+    validate_int(Value, "poc_receipts_absorb_timeout", 10, 100, false);
 
 validate_var(?poc_challenger_type, Value) ->
     case Value of
@@ -1491,14 +1491,14 @@ process_hooks(Vars, Unsets, Ledger) ->
 %% we dont care about its value, if its been
 %% updated then we wipe all POCs
 var_hook(?poc_challenger_type, _, Ledger) ->
-    lager:info("poc_challenger_type changed, puring pocs", []),
+    lager:info("poc_challenger_type changed, purging pocs", []),
     purge_pocs(Ledger),
     ok;
 var_hook(_Var, _Value, _Ledger) ->
     ok.
 
 unset_hook(?poc_challenger_type, Ledger) ->
-    lager:info("poc_challenger_type unset, puring pocs", []),
+    lager:info("poc_challenger_type unset, purging pocs", []),
     purge_pocs(Ledger),
     ok;
 unset_hook(_Var, _Ledger) ->
