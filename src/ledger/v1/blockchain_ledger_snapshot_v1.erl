@@ -688,13 +688,7 @@ load_blocks(Ledger0, Chain, Snapshot) ->
                     {ok, <<B0/binary>>} -> B0;
                     <<B0/binary>> -> B0
                 end,
-              Block =
-              case Block0 of
-                  B when is_binary(B) ->
-                      blockchain_block:deserialize(B);
-                  B -> B
-              end,
-
+              Block =blockchain_block:deserialize(Block0),
               Ht = blockchain_block:height(Block),
               %% since hash and block are written at the same time, just getting the
               %% hash from the height is an acceptable presence check, and much cheaper
@@ -707,7 +701,7 @@ load_blocks(Ledger0, Chain, Snapshot) ->
                   _ ->
                       lager:info("saving block ~p", [Ht]),
                       ok = blockchain:save_block(Block, Chain),
-                      blockchain:hash_block(Block)
+                      blockchain_block_v1:hash_block(Block)
                 end,
               print_memory(),
               case Ht > Curr2 of

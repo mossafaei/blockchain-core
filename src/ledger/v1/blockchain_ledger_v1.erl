@@ -2064,7 +2064,8 @@ delete_public_poc(OnionKeyHash, Ledger) ->
         {error, _}=Error ->
             Error;
         {ok, _PoC} ->
-            ?MODULE:delete_pocs(OnionKeyHash, Ledger)
+          PoCsCF = pocs_cf(Ledger),
+          cache_delete(Ledger, PoCsCF, OnionKeyHash)
     end.
 
 -spec update_public_poc(POC :: blockchain_ledger_poc_v3:poc(),
