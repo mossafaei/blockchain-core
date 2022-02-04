@@ -3235,7 +3235,9 @@ block_info_upgrade_test() ->
                                       election_epoch => 1,
                                       epoch_start => 0,
                                       seen_votes => [],
-                                      bba_completion => <<>>
+                                      bba_completion => <<>>,
+                                      poc_keys => []
+
                                       }),
     V1BlockInfo = #block_info{  height = 1,
                                 time = 1,
@@ -3244,11 +3246,11 @@ block_info_upgrade_test() ->
     ExpV2BlockInfo = #block_info_v2{height = 1,
                                     time = 1,
                                     hash = <<"blockhash">>,
-                                    pocs = #{},
+                                    pocs = [],
                                     hbbft_round = 1,
                                     election_info = {1, 0},
                                     penalties = {<<>>, []}},
     V2BlockInfo = upgrade_block_info(V1BlockInfo, Block, Chain),
-    ?assertMatch(V2BlockInfo, ExpV2BlockInfo).
+    ?assertMatch(ExpV2BlockInfo, V2BlockInfo).
 
 -endif.
