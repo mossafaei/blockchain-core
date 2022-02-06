@@ -30,6 +30,7 @@ register_all_usage() ->
                   peer_relay_reset_usage(),
                   peer_sync_usage(),
                   peer_fastforward_usage(),
+                  peer_crawl_usage(),
                   peer_usage()
                  ]).
 
@@ -50,6 +51,7 @@ register_all_cmds() ->
                   peer_relay_reset_cmd(),
                   peer_sync_cmd(),
                   peer_fastforward_cmd(),
+                  peer_crawl_cmd(),
                   peer_cmd()
                  ]).
 %%
@@ -70,7 +72,8 @@ peer_usage() ->
       "  peer refresh           - Request an updated peerbook for this peer from our gossip peers.\n"
       "  peer relay_reset       - Stop the current libp2p relay swarm and retry.\n"
       "  peer sync              - Connect to given peer and attempt to sync blocks.\n"
-      "  peer fastforward       - Connect to given peer and attempt to deliver blocks rapidly.\n"
+      "  peer fastforward       - Connect to given peer and attempt to deliver blocks rapidly.\n",
+      "  peer crawl             - Start active crawling"
      ]
     ].
 
@@ -443,6 +446,31 @@ peer_fastforward(["peer", "fastforward", Addr], [], []) ->
     end;
 peer_fastforward([], [], []) ->
     usage.
+
+%%
+%% peer crawl
+%%
+
+
+peer_crawl_cmd() ->
+    [
+     [["peer", "crawl"], [], [], fun peer_crawl/3]
+    ].
+
+
+peer_crawl_usage() ->
+    [["peer" "crawl"],
+     ["peer crawl\n\n",
+      " Start crawling the entire blockchain..\n\n"
+     ]
+    ].
+
+peer_crawl(["peer", "crawl"], [], []) ->
+    %%
+    %%  TO DO
+    %%
+    to_do.
+
 
 
 %%
