@@ -469,7 +469,11 @@ peer_crawl(["peer", "crawl"], [], []) ->
     %%
     %%  TO DO
     %%
-    to_do.
+    to_do;
+
+    
+peer_crawl([], [], []) ->
+    usage.
 
 
 
