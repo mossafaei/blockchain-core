@@ -122,17 +122,18 @@ init(Args) ->
     StateChannelSupOpts = [BaseDir],
     ChildSpecs =
         [
-         ?WORKER(blockchain_lock, []),
-         ?WORKER(blockchain_swarm, [SwarmWorkerOpts]),
-         ?WORKER(?EVT_MGR, blockchain_event, [BEventOpts])]
-        ++
-        [?WORKER(blockchain_score_cache, []),
-         ?WORKER(blockchain_worker, [BWorkerOpts]),
-         ?WORKER(blockchain_gc, []),
-         ?WORKER(blockchain_txn_mgr, [BTxnManagerOpts]),
-         ?SUP(blockchain_txn_mgr_sup, [BTxnMgrSupOpts]),
-         ?SUP(blockchain_state_channel_sup, [StateChannelSupOpts])
+         %?WORKER(blockchain_lock, []),
+         ?WORKER(blockchain_swarm, [SwarmWorkerOpts])
+         %?WORKER(?EVT_MGR, blockchain_event, [BEventOpts])
         ],
+        %++
+        %[?WORKER(blockchain_score_cache, []),
+        % ?WORKER(blockchain_worker, [BWorkerOpts]),
+        % ?WORKER(blockchain_gc, []),
+        % ?WORKER(blockchain_txn_mgr, [BTxnManagerOpts]),
+        % ?SUP(blockchain_txn_mgr_sup, [BTxnMgrSupOpts]),
+        % ?SUP(blockchain_state_channel_sup, [StateChannelSupOpts])
+        %],
     {ok, {?FLAGS, ChildSpecs}}.
 
 %% ------------------------------------------------------------------

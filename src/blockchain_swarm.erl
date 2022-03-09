@@ -92,6 +92,7 @@ gossip_peers() ->
 init(Args) ->
     lager:info("~p init with ~p", [?SERVER, Args]),
     {ok, Pid} = libp2p_swarm:start(?SWARM_NAME, Args),
+    ok = libp2p_swarm:listen(Pid, "/ip4/0.0.0.0/tcp/0"),
     true = erlang:link(Pid),
     {ok, #state{swarm=Pid}}.
 
