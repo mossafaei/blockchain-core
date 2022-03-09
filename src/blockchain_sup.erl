@@ -108,18 +108,18 @@ init(Args) ->
           ]}
         ] ++ GroupMgrArgs,
 
-    BWorkerOpts = [
-        {port, proplists:get_value(port, Args, 0)},
-        {base_dir, BaseDir},
-        {update_dir, proplists:get_value(update_dir, Args, undefined)}
-    ],
+    %BWorkerOpts = [
+    %    {port, proplists:get_value(port, Args, 0)},
+    %    {base_dir, BaseDir},
+    %    {update_dir, proplists:get_value(update_dir, Args, undefined)}
+    %],
 
-    BEventOpts = [],
+    %BEventOpts = [],
     %% create the txn manager ets table under this supervisor and set ourselves as the heir
     %% we call `ets:give_away' every time we start_link the txn manager
-    BTxnManagerOpts = #{ets => blockchain_txn_mgr:make_ets_table()},
-    BTxnMgrSupOpts = [],
-    StateChannelSupOpts = [BaseDir],
+    %BTxnManagerOpts = #{ets => blockchain_txn_mgr:make_ets_table()},
+    %BTxnMgrSupOpts = [],
+    %StateChannelSupOpts = [BaseDir],
     ChildSpecs =
         [
          %?WORKER(blockchain_lock, []),
