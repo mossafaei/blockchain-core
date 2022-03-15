@@ -81,8 +81,8 @@ init(Args) ->
     blockchain_utils:init_var_cache(),
 
     %% allow the parent app to change this if it needs to.
-    MetadataFun = application:get_env(blockchain, metadata_fun,
-                                      fun blockchain_worker:signed_metadata_fun/0),
+    %MetadataFun = application:get_env(blockchain, metadata_fun,
+    %                                  fun blockchain_worker:signed_metadata_fun/0),
     SwarmWorkerOpts =
         [
          {key, proplists:get_value(key, Args)},
@@ -91,7 +91,8 @@ init(Args) ->
          {libp2p_proxy,
           [{limit, application:get_env(blockchain, relay_limit, 25)}]},
          {libp2p_peerbook,
-          [{signed_metadata_fun, MetadataFun},
+          [
+           %{signed_metadata_fun, MetadataFun},
            {notify_peer_gossip_limit, application:get_env(blockchain, gossip_width, 100)},
            {notify_time, application:get_env(blockchain, peerbook_update_interval, timer:minutes(5))},
            {allow_rfc1918, application:get_env(blockchain, peerbook_allow_rfc1918, false)}
